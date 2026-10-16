@@ -20,7 +20,6 @@ const SocialSchema = z.object({
 type PendingSocialRequest = { id: string; roomId: string; fromId: string; toId: string; action: 'hold_hands' | 'kiss' | 'peck' | 'handsy'; createdAt: number };
 const pendingSocialRequests = new Map<string, PendingSocialRequest>();
 const filmRatings = new Map<string, Map<string, number>>();
-const SOCIAL_REQUEST_ACTIONS = new Set(['offer_hand', 'kiss', 'peck', 'handsy']);
 function closeEnough(a: { x: number; z: number }, b: { x: number; z: number }, max = 2.4) {
   return Math.hypot(a.x - b.x, a.z - b.z) <= max;
 }
@@ -96,7 +95,7 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
       const actor = findParticipantByToken(roomId, token)?.participant;
       if (!actor) return;
       const target = targetId ? found.room.participants.get(targetId) : undefined;
-      const notifyAction = (targetPerson?: typeof actor, actualAction = action) => {
+      const notifyAction = (targetPerson?: typeof actor, actualAction: string = action) => {
         const now = Date.now();
         actor.action = actualAction; actor.actionAt = now;
         if (targetPerson) { targetPerson.action = actualAction; targetPerson.actionAt = now; }
