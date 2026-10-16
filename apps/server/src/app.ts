@@ -13,7 +13,13 @@ export async function buildApp() {
   const allowedOrigins = (process.env.APP_ORIGIN ?? 'http://localhost:3000')
     .split(',').map((origin) => origin.trim()).filter(Boolean);
   await app.register(helmet);
-  await app.register(cors, { origin: allowedOrigins, credentials: true });
+  const isVercelProjectOrigin = (origin: string | undefined) =>
+    !origin || allowedOrigins.includes(origin) ||
+    /^https:\/\/wen-cine-[a-z0-9-]+-ciels-projects-9299fbb3\\.vercel\\.app$/.test(origin);
+  await app.register(cors, {
+    origin: (origin, callback) => callback(null, isVercelProjectOrigin(origin)),
+    credentials: true,
+  });
   await app.register(rateLimit, { max: 120, timeWindow: '1 minute' });
   app.get('/health', async () => ({ status: 'ok', service: 'wencine-server' }));
   await registerRoomRoutes(app);
