@@ -35,6 +35,12 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   const [filmRating, setFilmRating] = useState(0);
   const [filmSummary, setFilmSummary] = useState<{ count: number; average: number } | null>(null);
   const lastMoveRef = useRef(0);
+  const lastBumpRef = useRef(0);
+  const heldKeys = useRef(new Set<string>());
+  const participantsRef = useRef<Participant[]>([]);
+  participantsRef.current = participants;
+  const selfIdRef = useRef('');
+  selfIdRef.current = selfId;
   const gameplayRef = useRef({ pose, nearestSeatDistance: Infinity, seatedNeighbor: undefined as Participant | undefined, nearbyParticipant: undefined as Participant | undefined });
 
   useEffect(() => {
@@ -96,9 +102,15 @@ export function RoomExperience({ roomId }: { roomId: string }) {
       const seats = Array.from({ length: 5 }, (_, row) =>
         Array.from({ length: 8 }, (_, col) => ({ x: (col - 3.5) * 1.25, z: 1 + row * 1.65 }))).flat();
       const blocked = seats.some((seat) => Math.abs(x - seat.x) < 0.48 && Math.abs(z - seat.z) < 0.48);
-      if (blocked) { x = current.x; z = current.z; }
-      const next = { x, z, rotation: dx === 0 && dz === 0 ? current.rotation : Math.atan2(dx, dz) };
       const now = Date.now();
+      const colliding = participantsRef.current.some((person) => person.id !== selfIdRef.current && person.connected && Math.hypot(x - person.x, z - person.z) < 0.58);
+      if (blocked || colliding) { x = current.x; z = current.z; }
+      if (colliding && heldKeys.current.has('shift') && now - lastBumpRef.current > 1500) {
+        lastBumpRef.current = now;
+        setPose('fallen');
+        socketRef.current?.emit('social:action', { action: 'fall' });
+      }
+      const next = { x, z, rotation: dx === 0 && dz === 0 ? current.rotation : Math.atan2(dx, dz) };
       if (now - lastMoveRef.current > 45) {
         lastMoveRef.current = now;
         socketRef.current?.emit('avatar:move', { ...next, color, accessory, expression });
@@ -106,7 +118,6 @@ export function RoomExperience({ roomId }: { roomId: string }) {
       return next;
     });
   }, [color, accessory, expression]);
-  const heldKeys = useRef(new Set<string>());
   useEffect(() => {
     let lastCtrlTap = 0;
     let seatedActionIndex = 0;
