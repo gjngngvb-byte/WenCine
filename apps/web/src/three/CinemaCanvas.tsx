@@ -11,7 +11,8 @@ type Participant = {
 };
 type SocialEffect = { id: string; action: string; actorId: string; targetId?: string; sentAt: number };
 function Seat({ position }: { position: [number, number, number] }) {
-  return <group position={position}>
+  // O encosto fica para trás do avatar; todos os assentos olham para a tela (-Z).
+  return <group position={position} rotation={[0, Math.PI, 0]}>
     <mesh position={[0, 0.38, 0]} castShadow><boxGeometry args={[0.72, 0.18, 0.72]} /><meshStandardMaterial color="#553f70" roughness={0.72} /></mesh>
     <mesh position={[0, 0.78, -0.25]} castShadow><boxGeometry args={[0.72, 0.68, 0.16]} /><meshStandardMaterial color="#684b88" roughness={0.7} /></mesh>
     <mesh position={[-0.36, 0.5, 0]}><boxGeometry args={[0.1, 0.3, 0.72]} /><meshStandardMaterial color="#8b5cf6" /></mesh>
@@ -19,7 +20,7 @@ function Seat({ position }: { position: [number, number, number] }) {
     <mesh position={[0, 0.18, 0]}><boxGeometry args={[0.58, 0.3, 0.58]} /><meshStandardMaterial color="#29213d" /></mesh>
   </group>;
 }
-function Avatar({ person, local = false, socialEffects, allPeople }: { person: Participant; local?: boolean; socialEffects: SocialEffect[]; allPeople: Participant[] }) {
+function Avatar({ person, local = false, socialEffects, allPeople, onSelectParticipant }: { person: Participant; local?: boolean; socialEffects: SocialEffect[]; allPeople: Participant[]; onSelectParticipant?: (person: Participant) => void }) {
   const group = useRef<THREE.Group>(null);
   const leftArm = useRef<THREE.Group>(null);
   const rightArm = useRef<THREE.Group>(null);
@@ -52,7 +53,7 @@ function Avatar({ person, local = false, socialEffects, allPeople }: { person: P
     const lyingBack = person.pose === 'lying_back';
     const crouching = person.pose === 'crouching';
     const targetY = person.pose === 'sitting_chair' ? 0.18 : person.pose === 'sitting' ? -0.22 : fallen || lyingBack ? -0.08 : 0;
-    const jumpLift = activeEffect?.action === 'jump' && age < 1 ? Math.sin(age * Math.PI) * 0.68 : 0;
+    const jumpLift = activeEffect?.action === 'jump' && age < 1 ? Math.sin(Math.min(1, age) * Math.PI) * 1.05 : 0;
     group.current.position.lerp(new THREE.Vector3(targetX, targetY + jumpLift, targetZ), Math.min(1, delta * (isContactAnimation ? 7 : 9)));
     const targetRotation = partner ? Math.atan2(contactDx, contactDz) : person.rotation;
     group.current.rotation.y = THREE.MathUtils.damp(group.current.rotation.y, targetRotation, delta, isContactAnimation ? 7 : 10);
@@ -75,7 +76,7 @@ function Avatar({ person, local = false, socialEffects, allPeople }: { person: P
     if (leftLeg.current) leftLeg.current.rotation.x = sitting ? -1.15 : fallen ? 0.8 : -swing * 0.8;
     if (rightLeg.current) rightLeg.current.rotation.x = sitting ? -1.15 : fallen ? -0.35 : swing * 0.8;
   });
-  return <group ref={group} position={[person.x, 0, person.z]}>
+  return <group ref={group} position={[person.x, 0, person.z]} onClick={(event) => { if (!local && onSelectParticipant) { event.stopPropagation(); onSelectParticipant(person); } }}>
     <mesh position={[0, 0.57, 0]} castShadow><capsuleGeometry args={[0.23, 0.34, 5, 10]} /><meshStandardMaterial color={bodyColor} roughness={0.58} /></mesh>
     <mesh position={[0, 0.33, 0]} castShadow><sphereGeometry args={[0.2, 16, 12]} /><meshStandardMaterial color={bodyColor} roughness={0.7} /></mesh>
     <group ref={leftArm} position={[-0.25, 0.67, 0]}><mesh position={[0, -0.18, 0]} rotation={[0, 0, -0.12]} castShadow><capsuleGeometry args={[0.075, 0.28, 4, 8]} /><meshStandardMaterial color={bodyColor} /></mesh><mesh position={[0, -0.34, 0.015]}><sphereGeometry args={[0.075, 10, 8]} /><meshStandardMaterial color="#f1d3c3" /></mesh></group>
@@ -104,10 +105,10 @@ function Avatar({ person, local = false, socialEffects, allPeople }: { person: P
     <mesh position={[0, 1.55, 0]}><sphereGeometry args={[0.035, 8, 8]} /><meshBasicMaterial color={local ? '#34d399' : '#c4b5fd'} /></mesh>
   </group>;
 }
-function CinemaScene({ participants, selfId, position, color, accessory, expression, pose, socialEffects, nearbySeat, onSitChair }: {
+function CinemaScene({ participants, selfId, position, color, accessory, expression, pose, socialEffects, nearbySeat, onSitChair, onSelectParticipant }: {
   participants: Participant[]; selfId: string; position: { x: number; z: number; rotation: number };
   color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; socialEffects: SocialEffect[];
-  nearbySeat: { x: number; z: number } | null; onSitChair: (() => void) | undefined;
+  nearbySeat: { x: number; z: number } | null; onSitChair: (() => void) | undefined; onSelectParticipant?: (person: Participant) => void;
 }) {
   const localPerson: Participant = { id: selfId || 'local', displayName: 'Você', color, accessory, expression, ...position, connected: true, pose };
   return <>
@@ -128,7 +129,7 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
     <mesh position={[0, 5.8, 0]}><boxGeometry args={[19.4, 0.3, 21]} /><meshStandardMaterial color="#191622" /></mesh>
     {Array.from({ length: 9 }, (_, i) => <pointLight key={i} position={[(i - 4) * 2.2, 5.5, 3]} color={i % 2 ? '#8b5cf6' : '#60a5fa'} intensity={1.2} distance={4} />)}
     <Avatar person={localPerson} local socialEffects={socialEffects} allPeople={[localPerson, ...participants.filter((person) => person.id !== selfId && person.connected)]} />
-    {participants.filter((person) => person.id !== selfId && person.connected).map((person) => <Avatar key={person.id} person={person} socialEffects={socialEffects} allPeople={[localPerson, ...participants.filter((candidate) => candidate.id !== selfId && candidate.connected)]} />)}
+    {participants.filter((person) => person.id !== selfId && person.connected).map((person) => <Avatar key={person.id} person={person} socialEffects={socialEffects} allPeople={[localPerson, ...participants.filter((candidate) => candidate.id !== selfId && candidate.connected)]} onSelectParticipant={onSelectParticipant} />)}
     {socialEffects.filter((effect) => ['throw_popcorn', 'throw_tomato'].includes(effect.action) && Date.now() - effect.sentAt < 1800).map((effect) => {
       const thrower = participants.find((person) => person.id === effect.actorId) ?? (effect.actorId === selfId ? localPerson : undefined);
       return thrower ? <ThrownSnack key={effect.id} effect={effect} x={thrower.x} z={thrower.z} /> : null;
@@ -152,12 +153,12 @@ function ThrownSnack({ effect, x, z }: { effect: SocialEffect; x: number; z: num
     <meshStandardMaterial color={effect.action === 'throw_tomato' ? '#ef4444' : '#fbbf24'} roughness={0.55} />
   </mesh>;
 }
-export function CinemaCanvas({ participants, selfId, position, color, accessory, expression, pose, socialEffects, nearbySeat, onSitChair }: {
+export function CinemaCanvas({ participants, selfId, position, color, accessory, expression, pose, socialEffects, nearbySeat, onSitChair, onSelectParticipant }: {
   participants: Participant[]; selfId: string; position: { x: number; z: number; rotation: number };
   color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; socialEffects: SocialEffect[];
-  nearbySeat: { x: number; z: number } | null; onSitChair: (() => void) | undefined;
+  nearbySeat: { x: number; z: number } | null; onSitChair: (() => void) | undefined; onSelectParticipant?: (person: Participant) => void;
 }) {
   return <Canvas camera={{ position: [0, 5.5, 10], fov: 54 }} dpr={[1, 1.35]} shadows fallback={<p>Este dispositivo não consegue renderizar a cena 3D.</p>}>
-    <CinemaScene participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} nearbySeat={nearbySeat} onSitChair={onSitChair} />
+    <CinemaScene participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} nearbySeat={nearbySeat} onSitChair={onSitChair} onSelectParticipant={onSelectParticipant} />
   </Canvas>;
 }
