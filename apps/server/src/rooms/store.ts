@@ -6,7 +6,7 @@ export interface Participant {
   id: string; token: string; displayName: string; role: ParticipantRole; color: string;
   accessory: string; expression: string; x: number; z: number; rotation: number;
   connected: boolean; socketId?: string; joinedAt: number;
-  pose: 'standing' | 'sitting' | 'fallen'; holdingHandsWith?: string; action?: string; actionAt?: number;
+  pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen'; holdingHandsWith?: string; action?: string; actionAt?: number;
 }
 export interface Room {
   id: string; name: string; visibility: RoomVisibility; inviteCode: string; ownerToken: string;
