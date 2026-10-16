@@ -11,7 +11,7 @@ const PositionSchema = z.object({ x: z.number().finite(), z: z.number().finite()
   expression: z.enum(['neutral', 'happy', 'sad', 'angry', 'love', 'surprised', 'shy', 'sleepy']).optional() });
 const ChatSchema = z.object({ message: z.string().trim().min(1).max(500) });
 const SocialSchema = z.object({
-  action: z.enum(['sit', 'stand', 'fall', 'offer_hand', 'accept_interaction', 'decline_interaction', 'release_hand',
+  action: z.enum(['sit', 'sit_floor', 'sit_chair', 'stand', 'fall', 'offer_hand', 'accept_interaction', 'decline_interaction', 'release_hand',
     'share_popcorn', 'kiss', 'peck', 'slap', 'throw_popcorn', 'throw_tomato', 'steal_popcorn', 'handsy', 'rate_film']),
   targetId: z.string().uuid().optional(),
   requestId: z.string().uuid().optional(),
@@ -105,9 +105,19 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
         io.to(roomId).emit('avatar:moved', safeParticipant(actor));
         if (targetPerson) io.to(roomId).emit('avatar:moved', safeParticipant(targetPerson));
       };
-      if (action === 'sit' || action === 'stand' || action === 'fall') {
-        actor.pose = action === 'sit' ? 'sitting' : action === 'fall' ? 'fallen' : 'standing';
-        notifyAction(undefined, action);
+      if (action === 'sit' || action === 'sit_floor' || action === 'sit_chair' || action === 'stand' || action === 'fall') {
+        if (action === 'sit_chair') {
+          const seats = Array.from({ length: 5 }, (_, row) =>
+            Array.from({ length: 8 }, (_, col) => ({ x: (col - 3.5) * 1.25, z: 1 + row * 1.65 }))).flat();
+          const seat = seats.sort((a, b) => Math.hypot(a.x - actor.x, a.z - actor.z) - Math.hypot(b.x - actor.x, b.z - actor.z))[0];
+          if (!seat || !closeEnough(actor, seat, 1.3)) {
+            if (actor.socketId) io.to(actor.socketId).emit('social:response', { accepted: false, message: 'Aproxime-se de uma cadeira para sentar.' });
+            return;
+          }
+          updateParticipantPosition(roomId, actor.id, { x: seat.x, z: seat.z + 0.12, rotation: Math.PI });
+        }
+        actor.pose = action === 'sit_chair' ? 'sitting_chair' : (action === 'sit' || action === 'sit_floor') ? 'sitting' : action === 'fall' ? 'fallen' : 'standing';
+        notifyAction(undefined, action === 'sit_floor' ? 'sit' : action);
         return;
       }
       if (action === 'rate_film') {
