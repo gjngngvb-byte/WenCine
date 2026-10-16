@@ -1,24 +1,135 @@
-BSD 2-Clause License
+LICENÇA DE USO, CRIAÇÃO DE CONTEÚDO E EXTENSÕES
+VERSÃO 1.0
 
-Copyright (c) 2026, gjngngvb-byte
+1. TITULARIDADE E DIREITOS AUTORAIS
 
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
+O jogo [NOME DO JOGO], incluindo seu código-fonte, código compilado, arquivos originais, recursos gráficos, personagens, músicas, textos, interface e demais materiais de criação própria, pertence ao seu respectivo autor e titular dos direitos, identificado como:
 
-1. Redistributions of source code must retain the above copyright notice, this
-   list of conditions and the following disclaimer.
+Autor e titular: [SEU NOME OU PSEUDÔNIMO]
 
-2. Redistributions in binary form must reproduce the above copyright notice,
-   this list of conditions and the following disclaimer in the documentation
-   and/or other materials provided with the distribution.
+Todos os direitos não expressamente concedidos por esta licença são reservados ao titular.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+Esta licença não transfere a propriedade intelectual do jogo a jogadores, criadores de conteúdo, desenvolvedores de extensões ou terceiros.
+
+Materiais de terceiros eventualmente incluídos no jogo permanecem sujeitos às respectivas licenças e aos direitos de seus titulares.
+
+2. PERMISSÕES DE USO
+
+Qualquer pessoa pode:
+
+a) Jogar o jogo gratuitamente, utilizando cópias obtidas por meios autorizados pelo titular.
+
+b) Gravar, editar, transmitir e publicar vídeos, capturas de tela, análises, tutoriais, transmissões ao vivo e outros conteúdos que mostrem o jogo.
+
+c) Monetizar vídeos e transmissões que apresentem o jogo, inclusive por meio de publicidade, programas de monetização de plataformas e contribuições voluntárias do público.
+
+d) Criar extensões, modificações, complementos, ferramentas e outros conteúdos adicionais compatíveis com o jogo, desde que não violem esta licença nem direitos de terceiros.
+
+e) Compartilhar extensões e modificações próprias gratuitamente, respeitadas as condições desta licença.
+
+Essas permissões não concedem propriedade sobre o jogo original nem autorização para comercializar seus arquivos ou suas extensões.
+
+3. CRÉDITOS OBRIGATÓRIOS
+
+Ao divulgar publicamente o jogo, utilizá-lo como parte de um projeto ou distribuir extensões destinadas a ele, o responsável deverá identificar claramente o jogo e seu autor original.
+
+O crédito deverá ser apresentado em local razoavelmente visível e acessível, como a descrição do vídeo, a página de download da extensão, o arquivo de documentação ou os créditos do projeto.
+
+Formato recomendado:
+
+"Jogo original: [NOME DO JOGO]
+Criado por: [SEU NOME OU PSEUDÔNIMO]
+Fonte oficial: [LINK OFICIAL]"
+
+O crédito não precisa aparecer permanentemente dentro da imagem do vídeo quando uma identificação clara na descrição for suficiente.
+
+É proibido remover deliberadamente os créditos existentes para ocultar a autoria original ou induzir terceiros a acreditar que o responsável pela divulgação criou o jogo original.
+
+4. PROIBIÇÃO DE FALSA AUTORIA
+
+É proibido:
+
+a) Declarar ser o criador original, autor exclusivo ou titular do jogo quando isso não for verdade.
+
+b) Apresentar o jogo original, integralmente ou em partes substanciais, como criação própria.
+
+c) Registrar ou reivindicar fraudulentamente a autoria do jogo ou de seus materiais originais.
+
+d) Alterar os créditos, avisos de autoria ou informações de propriedade intelectual com a finalidade de ocultar o titular original.
+
+e) Fazer declarações falsas de que o titular original endossa, patrocina ou mantém uma versão modificada do jogo.
+
+Criar uma extensão, modificação, tradução, vídeo ou conteúdo derivado não transforma seu autor no criador do jogo original.
+
+Os autores de extensões mantêm os direitos que efetivamente possuírem sobre suas próprias contribuições, sem adquirir por isso direitos sobre o jogo original.
+
+5. PROIBIÇÃO DE VENDA E REDISTRIBUIÇÃO NÃO AUTORIZADA
+
+Sem autorização expressa do titular, é proibido:
+
+a) Vender, alugar, sublicenciar ou cobrar pelo acesso a cópias do jogo original.
+
+b) Redistribuir cópias integrais do jogo, incluindo versões modificadas que contenham arquivos originais substanciais, fora dos meios autorizados pelo titular.
+
+c) Incluir o jogo original em pacotes, coleções, produtos ou serviços comerciais com cobrança pelo próprio jogo ou pelo acesso a ele.
+
+d) Cobrar pelo download, desbloqueio, instalação, acesso ou utilização de extensões destinadas ao jogo.
+
+e) Colocar extensões sob assinatura, pagamento obrigatório, acesso pago ou qualquer outra modalidade que condicione seu uso ao pagamento.
+
+f) Utilizar extensões ou modificações como meio de revender, sublicenciar ou distribuir indevidamente os arquivos originais do jogo.
+
+A monetização de vídeos e transmissões permitida na Seção 2 não constitui autorização para vender o jogo ou cobrar pelo acesso às extensões.
+
+6. EXTENSÕES E MODIFICAÇÕES GRATUITAS
+
+Extensões e modificações podem ser desenvolvidas e distribuídas gratuitamente.
+
+Se uma extensão incorporar arquivos originais do jogo, a distribuição deverá respeitar esta licença e os direitos aplicáveis.
+
+Sempre que tecnicamente possível, recomenda-se distribuir apenas os arquivos adicionais necessários, sem incluir cópias dos arquivos originais do jogo.
+
+Esta licença não concede acesso ao código-fonte privado do jogo nem autoriza sua publicação, divulgação ou distribuição.
+
+A criação de extensões não implica autorização automática para descompilar, acessar, divulgar ou redistribuir componentes privados do jogo. Esta disposição não elimina eventuais permissões ou exceções garantidas pela legislação aplicável.
+
+7. MARCA, NOME E IDENTIDADE DO JOGO
+
+O nome, logotipo e demais sinais de identificação do jogo não podem ser utilizados de maneira que provoque confusão sobre sua autoria, origem, titularidade ou endosso oficial.
+
+A referência ao nome do jogo para identificar vídeos, análises, extensões e conteúdos compatíveis é permitida, desde que não sugira falsamente uma relação oficial com o titular.
+
+8. AUSÊNCIA DE TRANSFERÊNCIA DE DIREITOS
+
+Todas as permissões concedidas por esta licença são limitadas às atividades expressamente autorizadas.
+
+Nenhuma disposição transfere a titularidade do jogo, do código-fonte, dos recursos originais ou da identidade do projeto.
+
+O titular mantém o direito de desenvolver, atualizar, distribuir, licenciar e explorar comercialmente o jogo por meios próprios, respeitando os direitos que terceiros possuam legitimamente sobre suas contribuições.
+
+9. VIOLAÇÕES E ENCERRAMENTO DAS PERMISSÕES
+
+O descumprimento destas condições poderá resultar na revogação das permissões concedidas ao responsável pela violação, na medida permitida pela legislação aplicável.
+
+O titular poderá solicitar a interrupção do uso irregular, a remoção de cópias não autorizadas e a correção de informações falsas sobre a autoria, além de recorrer às medidas legais cabíveis.
+
+Esta seção não elimina direitos legais de defesa, exceções legais ou procedimentos obrigatórios aplicáveis.
+
+10. LEGISLAÇÃO APLICÁVEL
+
+Esta licença deverá ser interpretada conforme a legislação aplicável, incluindo, quando pertinente, a legislação brasileira sobre direitos autorais e programas de computador.
+
+Nenhuma disposição pretende afastar direitos ou exceções que não possam ser excluídos por contrato.
+
+11. CONTATO E AUTORIZAÇÕES ESPECIAIS
+
+Para solicitar autorização para usos não contemplados nesta licença, inclusive distribuição comercial, venda de extensões ou redistribuição de arquivos do jogo, entre em contato com:
+
+Titular: [SEU NOME OU PSEUDÔNIMO]
+Contato: [SEU E-MAIL OU CANAL OFICIAL]
+
+Autorizações especiais deverão ser concedidas expressamente pelo titular ou por representante autorizado.
+
+---
+
+© [ANO] [SEU NOME OU PSEUDÔNIMO]. Todos os direitos reservados, exceto pelas permissões expressamente concedidas nesta licença.
