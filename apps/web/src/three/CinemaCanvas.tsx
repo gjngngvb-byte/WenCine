@@ -31,8 +31,13 @@ function Avatar({ person, local = false, socialEffects, allPeople }: { person: P
   useFrame((_, delta) => {
     if (!group.current) return;
     const now = Date.now();
-    const activeEffect = [...socialEffects].reverse().find((effect) =>
-      (effect.actorId === person.id || effect.targetId === person.id) && now - effect.sentAt < (effect.action === 'kiss' ? 2600 : effect.action === 'peck' ? 650 : 1150));
+    const activeEffect = [...socialEffects].reverse().find((effect) => {
+      if (effect.actorId !== person.id && effect.targetId !== person.id) return false;
+      const partnerId = effect.actorId === person.id ? effect.targetId : effect.actorId;
+      const partner = allPeople.find((candidate) => candidate.id === partnerId);
+      const heldKiss = effect.action === 'kiss' && person.pose === 'sitting_chair' && partner?.pose === 'sitting_chair' && partner && Math.hypot(partner.x - person.x, partner.z - person.z) <= 1.35;
+      return now - effect.sentAt < (effect.action === 'kiss' ? 2600 : effect.action === 'peck' ? 650 : 1150) || Boolean(heldKiss);
+    });
     const age = activeEffect ? Math.max(0, (now - activeEffect.sentAt) / (activeEffect.action === 'kiss' ? 2600 : activeEffect.action === 'peck' ? 650 : 1150)) : 1;
     const isContactAnimation = Boolean(activeEffect && ['kiss', 'peck'].includes(activeEffect.action));
     const partnerId = activeEffect?.actorId === person.id ? activeEffect.targetId : activeEffect?.targetId === person.id ? activeEffect.actorId : undefined;
@@ -50,7 +55,7 @@ function Avatar({ person, local = false, socialEffects, allPeople }: { person: P
     const targetRotation = partner ? Math.atan2(contactDx, contactDz) : person.rotation;
     group.current.rotation.y = THREE.MathUtils.damp(group.current.rotation.y, targetRotation, delta, isContactAnimation ? 7 : 10);
     group.current.rotation.z = THREE.MathUtils.damp(group.current.rotation.z, fallen ? -1.12 : 0, delta, 7);
-    group.current.rotation.x = THREE.MathUtils.damp(group.current.rotation.x, partner ? (activeEffect?.action === 'kiss' ? -0.08 : -0.035) * Math.sin(age * Math.PI) : 0, delta, 8);
+    group.current.rotation.x = THREE.MathUtils.damp(group.current.rotation.x, partner ? (activeEffect?.action === 'kiss' ? -0.08 + Math.sin(performance.now() * 0.004) * 0.02 : -0.035 * Math.sin(age * Math.PI)) : 0, delta, 8);
     group.current.scale.y = THREE.MathUtils.damp(group.current.scale.y, activeEffect?.action === 'crouch' && age < 1 ? 0.72 : 1, delta, 12);
     const moving = !sitting && !fallen && Math.hypot(person.x - lastPosition.current.x, person.z - lastPosition.current.z) > 0.002;
     lastPosition.current = { x: person.x, z: person.z };
