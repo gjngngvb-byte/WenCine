@@ -12,7 +12,13 @@ const PositionSchema = z.object({ x: z.number().finite(), z: z.number().finite()
 const ChatSchema = z.object({ message: z.string().trim().min(1).max(500) });
 
 export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
-  const io = new Server(server, { cors: { origin: allowedOrigins, credentials: true },
+  const isAllowedOrigin = (origin: string | undefined) =>
+    !origin || allowedOrigins.includes(origin) ||
+    /^https:\/\/wen-cine-[a-z0-9-]+-ciels-projects-9299fbb3\.vercel\.app$/.test(origin);
+  const io = new Server(server, { cors: {
+    origin: (origin, callback) => callback(null, isAllowedOrigin(origin)),
+    credentials: true,
+  },
     maxHttpBufferSize: 64 * 1024, pingInterval: 25_000, pingTimeout: 20_000 });
   io.use((socket, next) => {
     const roomId = socket.handshake.auth.roomId;
