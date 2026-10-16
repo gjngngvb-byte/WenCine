@@ -12,7 +12,7 @@ const PositionSchema = z.object({ x: z.number().finite(), z: z.number().finite()
 const ChatSchema = z.object({ message: z.string().trim().min(1).max(500) });
 const SocialSchema = z.object({
   action: z.enum(['sit', 'sit_floor', 'sit_chair', 'stand', 'fall', 'offer_hand', 'accept_interaction', 'decline_interaction', 'release_hand',
-    'share_popcorn', 'kiss', 'peck', 'slap', 'throw_popcorn', 'throw_tomato', 'steal_popcorn', 'handsy', 'rate_film']),
+    'share_popcorn', 'kiss', 'peck', 'slap', 'throw_popcorn', 'throw_tomato', 'steal_popcorn', 'handsy', 'rate_film', 'jump', 'crouch', 'lie_back']),
   targetId: z.string().uuid().optional(),
   requestId: z.string().uuid().optional(),
   rating: z.number().int().min(1).max(5).optional(),
@@ -105,6 +105,8 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
         io.to(roomId).emit('avatar:moved', safeParticipant(actor));
         if (targetPerson) io.to(roomId).emit('avatar:moved', safeParticipant(targetPerson));
       };
+      if (action === 'jump' || action === 'crouch') { notifyAction(undefined, action); return; }
+      if (action === 'lie_back') { actor.pose = 'fallen'; notifyAction(undefined, action); return; }
       if (action === 'sit' || action === 'sit_floor' || action === 'sit_chair' || action === 'stand' || action === 'fall') {
         if (action === 'sit_chair') {
           const seats = Array.from({ length: 5 }, (_, row) =>
