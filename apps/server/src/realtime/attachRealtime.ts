@@ -105,8 +105,9 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
         io.to(roomId).emit('avatar:moved', safeParticipant(actor));
         if (targetPerson) io.to(roomId).emit('avatar:moved', safeParticipant(targetPerson));
       };
-      if (action === 'jump' || action === 'crouch') { notifyAction(undefined, action); return; }
-      if (action === 'lie_back') { actor.pose = 'fallen'; notifyAction(undefined, action); return; }
+      if (action === 'jump') { notifyAction(undefined, action); return; }
+      if (action === 'crouch') { actor.pose = actor.pose === 'crouching' ? 'standing' : 'crouching'; notifyAction(undefined, action); return; }
+      if (action === 'lie_back') { actor.pose = 'lying_back'; notifyAction(undefined, action); return; }
       if (action === 'sit' || action === 'sit_floor' || action === 'sit_chair' || action === 'stand' || action === 'fall') {
         if (action === 'sit_chair') {
           const seats = Array.from({ length: 5 }, (_, row) =>
