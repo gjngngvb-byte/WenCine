@@ -123,3 +123,7 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #
 .film-rating button.rated { color: #fbbf24; text-shadow: 0 0 .8rem #fbbf2466; }
 .film-rating span { color: var(--muted); font-size: .7rem; }
 @media (max-width: 600px) { .social-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.seat-social { display: grid; gap: .45rem; padding: .8rem; border: 1px solid #a78bfa66; border-radius: .8rem; background: linear-gradient(135deg, #35234d, #211a30); }
+.seat-social > strong { color: #e4d7ff; font-size: .78rem; }
+.seat-social > p { margin: 0; color: var(--muted); font-size: .7rem; line-height: 1.45; }
