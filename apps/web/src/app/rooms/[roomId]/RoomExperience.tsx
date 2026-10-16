@@ -59,28 +59,49 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   }, [roomId, session]);
   const move = useCallback((dx: number, dz: number) => {
     setPosition((current) => {
-      const next = { x: Math.max(-8, Math.min(8, current.x + dx)), z: Math.max(-1, Math.min(9, current.z + dz)),
-        rotation: dx === 0 && dz === 0 ? current.rotation : Math.atan2(dx, dz) };
+      let x = Math.max(-9.05, Math.min(9.05, current.x + dx));
+      let z = Math.max(-9.35, Math.min(9.2, current.z + dz));
+      // Keep the avatar out of the screen wall and prevent walking through occupied seat geometry.
+      const seats = Array.from({ length: 5 }, (_, row) =>
+        Array.from({ length: 8 }, (_, col) => ({ x: (col - 3.5) * 1.25, z: 1 + row * 1.65 }))).flat();
+      const blocked = seats.some((seat) => Math.abs(x - seat.x) < 0.48 && Math.abs(z - seat.z) < 0.48);
+      if (blocked) { x = current.x; z = current.z; }
+      const next = { x, z, rotation: dx === 0 && dz === 0 ? current.rotation : Math.atan2(dx, dz) };
       const now = Date.now();
-      if (now - lastMoveRef.current > 70) {
+      if (now - lastMoveRef.current > 45) {
         lastMoveRef.current = now;
         socketRef.current?.emit('avatar:move', { ...next, color, accessory, expression });
       }
       return next;
     });
   }, [color, accessory, expression]);
+  const heldKeys = useRef(new Set<string>());
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null;
       if (target?.matches('input, textarea, select, button')) return;
-      const key = event.key.toLowerCase(); const step = event.shiftKey ? 0.65 : 0.32;
-      if (['w', 'arrowup'].includes(key)) { event.preventDefault(); move(0, -step); }
-      else if (['s', 'arrowdown'].includes(key)) { event.preventDefault(); move(0, step); }
-      else if (['a', 'arrowleft'].includes(key)) { event.preventDefault(); move(-step, 0); }
-      else if (['d', 'arrowright'].includes(key)) { event.preventDefault(); move(step, 0); }
+      const key = event.key.toLowerCase();
+      if (['w', 'a', 's', 'd', 'arrowup', 'arrowleft', 'arrowdown', 'arrowright'].includes(key)) {
+        event.preventDefault(); heldKeys.current.add(key);
+      }
     }
+    function onKeyUp(event: KeyboardEvent) { heldKeys.current.delete(event.key.toLowerCase()); }
+    function clearKeys() { heldKeys.current.clear(); }
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', clearKeys);
+    let previous = performance.now();
+    let frame = 0;
+    const tick = (now: number) => {
+      const elapsed = Math.min(0.04, (now - previous) / 1000); previous = now;
+      const keys = heldKeys.current;
+      let dx = (keys.has('d') || keys.has('arrowright') ? 1 : 0) - (keys.has('a') || keys.has('arrowleft') ? 1 : 0);
+      let dz = (keys.has('s') || keys.has('arrowdown') ? 1 : 0) - (keys.has('w') || keys.has('arrowup') ? 1 : 0);
+      if (dx || dz) { const length = Math.hypot(dx, dz) || 1; const speed = keys.size && (keys.has('shift') ) ? 4.2 : 2.8; move(dx / length * speed * elapsed, dz / length * speed * elapsed); }
+      frame = window.requestAnimationFrame(tick);
+    };
+    frame = window.requestAnimationFrame(tick);
+    return () => { window.cancelAnimationFrame(frame); window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp); window.removeEventListener('blur', clearKeys); };
   }, [move]);
   useEffect(() => {
     if (!mobileDirection) return;
@@ -103,7 +124,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     {error && <p className="inline-error" role="status">{error}</p>}
     <div className="experience-layout"><section className="cinema-stage"><div className="stage-label"><span>WENCINE / SALA 3D</span><span>{participants.filter((p) => p.connected).length} participante(s)</span></div>
       <div className="canvas-wrap"><CinemaCanvas participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} /></div>
-      <div className="movement-help">WASD / setas para caminhar · Use os controles na tela no celular</div>
+      <div className="movement-help">WASD / setas para caminhar · Use os controles na tela no celular · E para interagir com uma cadeira</div>
       <div className="mobile-controls" aria-label="Controles de movimentação"><button onPointerDown={() => setMobileDirection('up')} onPointerUp={() => setMobileDirection('')} onPointerLeave={() => setMobileDirection('')} aria-label="Andar para frente">↑</button>
         <div><button onPointerDown={() => setMobileDirection('left')} onPointerUp={() => setMobileDirection('')} onPointerLeave={() => setMobileDirection('')} aria-label="Andar para esquerda">←</button>
           <button onPointerDown={() => setMobileDirection('down')} onPointerUp={() => setMobileDirection('')} onPointerLeave={() => setMobileDirection('')} aria-label="Andar para trás">↓</button>
