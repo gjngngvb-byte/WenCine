@@ -119,7 +119,7 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
             if (actor.socketId) io.to(actor.socketId).emit('social:response', { accepted: false, message: 'Aproxime-se de uma cadeira para sentar.' });
             return;
           }
-          updateParticipantPosition(roomId, actor.id, { x: seat.x, z: seat.z + 0.12, rotation: Math.PI });
+          updateParticipantPosition(roomId, actor.id, { x: seat.x, z: seat.z - 0.08, rotation: Math.PI });
         }
         actor.pose = action === 'sit_chair' ? 'sitting_chair' : (action === 'sit' || action === 'sit_floor') ? 'sitting' : action === 'fall' ? 'fallen' : 'standing';
         notifyAction(undefined, action === 'sit_floor' ? 'sit' : action);
