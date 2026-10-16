@@ -23,6 +23,8 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   const [connection, setConnection] = useState('Conectando');
   const [error, setError] = useState('');
   const [position, setPosition] = useState({ x: 0, z: 4, rotation: 0 });
+  const positionRef = useRef(position);
+  positionRef.current = position;
   const [color, setColor] = useState('#a78bfa');
   const [accessory, setAccessory] = useState('none');
   const [expression, setExpression] = useState('neutral');
@@ -70,10 +72,10 @@ export function RoomExperience({ roomId }: { roomId: string }) {
       setParticipants((current) => current.map((p) => p.id === person.id ? person : p));
       if (person.id === selfId) {
         setPose(person.pose ?? 'standing');
-        setPosition({ x: person.x, z: person.z, rotation: person.rotation });
+        const nextPosition = { x: person.x, z: person.z, rotation: person.rotation }; positionRef.current = nextPosition; setPosition(nextPosition);
       }
     });
-    socket.on('avatar:dragged', (next: { x: number; z: number; rotation: number }) => setPosition(next));
+    socket.on('avatar:dragged', (next: { x: number; z: number; rotation: number }) => { positionRef.current = next; setPosition(next); });
     socket.on('social:request', (request: { requestId: string; fromId: string; fromName: string; action: string }) => setPendingRequest(request));
     socket.on('social:response', (response: { accepted: boolean; action?: string; message?: string }) => setSocialStatus(response.message ?? (response.accepted ? 'Interação aceita!' : 'A pessoa recusou a interação.')));
     socket.on('social:effect', (effect: { id: string; action: string; actorId: string; targetId?: string; sentAt: number }) => {
@@ -96,28 +98,27 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     return () => { active = false; socket.disconnect(); socketRef.current = null; };
   }, [roomId, session]);
   const move = useCallback((dx: number, dz: number) => {
-    setPosition((current) => {
-      let x = Math.max(-9.05, Math.min(9.05, current.x + dx));
-      let z = Math.max(-9.35, Math.min(9.2, current.z + dz));
-      // Keep the avatar out of the screen wall and prevent walking through occupied seat geometry.
-      const seats = Array.from({ length: 5 }, (_, row) =>
-        Array.from({ length: 8 }, (_, col) => ({ x: (col - 3.5) * 1.25, z: 1 + row * 1.65 }))).flat();
-      const blocked = seats.some((seat) => Math.abs(x - seat.x) < 0.48 && Math.abs(z - seat.z) < 0.48);
-      const now = Date.now();
-      const colliding = participantsRef.current.some((person) => person.id !== selfIdRef.current && person.connected && Math.hypot(x - person.x, z - person.z) < 0.58);
-      if (blocked || colliding) { x = current.x; z = current.z; }
-      if ((colliding || blocked) && heldKeys.current.has('shift') && now - lastBumpRef.current > 1500) {
-        lastBumpRef.current = now;
-        setPose('fallen');
-        socketRef.current?.emit('social:action', { action: 'fall' });
-      }
-      const next = { x, z, rotation: dx === 0 && dz === 0 ? current.rotation : Math.atan2(dx, dz) };
-      if (now - lastMoveRef.current > 45) {
-        lastMoveRef.current = now;
-        socketRef.current?.emit('avatar:move', { ...next, color, accessory, expression });
-      }
-      return next;
-    });
+    const current = positionRef.current;
+    let x = Math.max(-9.05, Math.min(9.05, current.x + dx));
+    let z = Math.max(-9.35, Math.min(9.2, current.z + dz));
+    const seats = Array.from({ length: 5 }, (_, row) =>
+      Array.from({ length: 8 }, (_, col) => ({ x: (col - 3.5) * 1.25, z: 1 + row * 1.65 }))).flat();
+    const blocked = seats.some((seat) => Math.abs(x - seat.x) < 0.48 && Math.abs(z - seat.z) < 0.48);
+    const now = Date.now();
+    const colliding = participantsRef.current.some((person) => person.id !== selfIdRef.current && person.connected && Math.hypot(x - person.x, z - person.z) < 0.58);
+    if (blocked || colliding) { x = current.x; z = current.z; }
+    if ((colliding || blocked) && heldKeys.current.has('shift') && now - lastBumpRef.current > 1500) {
+      lastBumpRef.current = now;
+      setPose('fallen');
+      socketRef.current?.emit('social:action', { action: 'fall' });
+    }
+    const next = { x, z, rotation: dx === 0 && dz === 0 ? current.rotation : Math.atan2(dx, dz) };
+    positionRef.current = next;
+    setPosition(next);
+    if (now - lastMoveRef.current > 45) {
+      lastMoveRef.current = now;
+      socketRef.current?.emit('avatar:move', { ...next, color, accessory, expression });
+    }
   }, [color, accessory, expression]);
   useEffect(() => {
     let lastCtrlTap = 0;
