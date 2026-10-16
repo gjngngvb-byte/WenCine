@@ -118,6 +118,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
       if (key === 'control') { const now = Date.now(); socialAction(now - lastCtrlTap < 350 ? 'lie_back' : 'crouch'); lastCtrlTap = now; }
       if (key === 'e') {
         event.preventDefault();
+        if (pose === 'sitting_chair' && seatedNeighbor) { const actions = ['handsy', 'steal_popcorn', 'slap']; const action = actions[seatedActionIndex % actions.length]!; seatedActionIndex += 1; socialAction(action, { targetId: seatedNeighbor.id }); return; }
         if (pose === 'sitting' || pose === 'sitting_chair' || pose === 'fallen') { setPose('standing'); socialAction('stand'); return; }
         if (nearestSeatDistance <= 1.3) { setPose('sitting_chair'); socialAction('sit_chair'); return; }
         if (seatedNeighbor) { const actions = ['handsy', 'steal_popcorn', 'slap']; const action = actions[seatedActionIndex % actions.length]!; seatedActionIndex += 1; socialAction(action, { targetId: seatedNeighbor.id }); return; }
