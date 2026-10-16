@@ -81,7 +81,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
       const target = event.target as HTMLElement | null;
       if (target?.matches('input, textarea, select, button')) return;
       const key = event.key.toLowerCase();
-      if (['w', 'a', 's', 'd', 'arrowup', 'arrowleft', 'arrowdown', 'arrowright'].includes(key)) {
+      if (['w', 'a', 's', 'd', 'arrowup', 'arrowleft', 'arrowdown', 'arrowright', 'shift'].includes(key)) {
         event.preventDefault(); heldKeys.current.add(key);
       }
     }
@@ -97,7 +97,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
       const keys = heldKeys.current;
       let dx = (keys.has('d') || keys.has('arrowright') ? 1 : 0) - (keys.has('a') || keys.has('arrowleft') ? 1 : 0);
       let dz = (keys.has('s') || keys.has('arrowdown') ? 1 : 0) - (keys.has('w') || keys.has('arrowup') ? 1 : 0);
-      if (dx || dz) { const length = Math.hypot(dx, dz) || 1; const speed = keys.size && (keys.has('shift') ) ? 4.2 : 2.8; move(dx / length * speed * elapsed, dz / length * speed * elapsed); }
+      if (dx || dz) { const length = Math.hypot(dx, dz) || 1; const speed = keys.has('shift') ? 4.2 : 2.8; move(dx / length * speed * elapsed, dz / length * speed * elapsed); }
       frame = window.requestAnimationFrame(tick);
     };
     frame = window.requestAnimationFrame(tick);
@@ -124,7 +124,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     {error && <p className="inline-error" role="status">{error}</p>}
     <div className="experience-layout"><section className="cinema-stage"><div className="stage-label"><span>WENCINE / SALA 3D</span><span>{participants.filter((p) => p.connected).length} participante(s)</span></div>
       <div className="canvas-wrap"><CinemaCanvas participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} /></div>
-      <div className="movement-help">WASD / setas para caminhar · Use os controles na tela no celular · E para interagir com uma cadeira</div>
+      <div className="movement-help">WASD / setas para caminhar · Use os controles na tela no celular </div>
       <div className="mobile-controls" aria-label="Controles de movimentação"><button onPointerDown={() => setMobileDirection('up')} onPointerUp={() => setMobileDirection('')} onPointerLeave={() => setMobileDirection('')} aria-label="Andar para frente">↑</button>
         <div><button onPointerDown={() => setMobileDirection('left')} onPointerUp={() => setMobileDirection('')} onPointerLeave={() => setMobileDirection('')} aria-label="Andar para esquerda">←</button>
           <button onPointerDown={() => setMobileDirection('down')} onPointerUp={() => setMobileDirection('')} onPointerLeave={() => setMobileDirection('')} aria-label="Andar para trás">↓</button>
