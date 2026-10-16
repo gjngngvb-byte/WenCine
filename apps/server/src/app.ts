@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
+import { registerRoomRoutes } from './rooms/routes.js';
 
 export async function buildApp() {
   const app = Fastify({
@@ -11,12 +12,11 @@ export async function buildApp() {
   });
   const allowedOrigins = (process.env.APP_ORIGIN ?? 'http://localhost:3000')
     .split(',').map((origin) => origin.trim()).filter(Boolean);
-
   await app.register(helmet);
   await app.register(cors, { origin: allowedOrigins, credentials: true });
   await app.register(rateLimit, { max: 120, timeWindow: '1 minute' });
   app.get('/health', async () => ({ status: 'ok', service: 'wencine-server' }));
-
+  await registerRoomRoutes(app);
   app.setErrorHandler((error, request, reply) => {
     request.log.error({ err: error }, 'Erro não tratado na requisição');
     const statusCode = error.statusCode && error.statusCode < 500 ? error.statusCode : 500;
