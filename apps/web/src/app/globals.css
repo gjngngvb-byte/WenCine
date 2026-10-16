@@ -106,3 +106,24 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #
   .experience-layout { margin-top: .6rem; }.canvas-wrap { height: 48vh; min-height: 19rem; }.mobile-controls { display: grid; }.movement-help { text-align: center; }
   .room-sidebar { grid-template-columns: 1fr; }.chat-panel { grid-column: auto; }.stage-label { font-size: .6rem; }.experience-title strong { max-width: 12rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
+
+.social-panel { display: grid; gap: .7rem; }
+.social-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; margin-top: .2rem; }
+.social-actions button, .social-request button { min-width: 0; padding: .62rem .5rem; border: 1px solid #57476f; border-radius: .65rem; background: linear-gradient(145deg, #302542, #211b30); color: #eee7ff; font-size: .72rem; font-weight: 650; text-align: left; transition: border-color .16s ease, transform .16s ease, background .16s ease; }
+.social-actions button:hover, .social-request button:hover { border-color: #b69cff; background: #403154; transform: translateY(-1px); }
+.social-request { display: grid; gap: .65rem; padding: .8rem; border: 1px solid #8b5cf6; border-radius: .8rem; background: #2a1e3c; color: #f2eaff; font-size: .78rem; }
+.social-request div { display: flex; gap: .5rem; }
+.social-request button { flex: 1; text-align: center; }
+.social-request button:first-child { background: #6d4ca1; }
+.social-status { margin: 0; color: #c4b5fd; font-size: .74rem; line-height: 1.5; }
+.film-rating { display: grid; gap: .35rem; padding-top: .8rem; border-top: 1px solid var(--line); }
+.film-rating strong { font-size: .78rem; }
+.film-rating div { display: flex; gap: .3rem; }
+.film-rating button { border: 0; padding: .1rem .2rem; background: transparent; color: #635b75; font-size: 1.5rem; }
+.film-rating button.rated { color: #fbbf24; text-shadow: 0 0 .8rem #fbbf2466; }
+.film-rating span { color: var(--muted); font-size: .7rem; }
+@media (max-width: 600px) { .social-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.seat-social { display: grid; gap: .45rem; padding: .8rem; border: 1px solid #a78bfa66; border-radius: .8rem; background: linear-gradient(135deg, #35234d, #211a30); }
+.seat-social > strong { color: #e4d7ff; font-size: .78rem; }
+.seat-social > p { margin: 0; color: var(--muted); font-size: .7rem; line-height: 1.45; }
