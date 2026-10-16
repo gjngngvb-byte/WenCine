@@ -20,7 +20,7 @@ function Seat({ position }: { position: [number, number, number] }) {
     <mesh position={[0, 0.18, 0]}><boxGeometry args={[0.58, 0.3, 0.58]} /><meshStandardMaterial color="#29213d" /></mesh>
   </group>;
 }
-function Avatar({ person, local = false, socialEffects, allPeople, onSelectParticipant }: { person: Participant; local?: boolean; socialEffects: SocialEffect[]; allPeople: Participant[]; onSelectParticipant?: (person: Participant) => void }) {
+function Avatar({ person, local = false, socialEffects, allPeople, onSelectParticipant }: { person: Participant; local?: boolean; socialEffects: SocialEffect[]; allPeople: Participant[]; onSelectParticipant?: (participantId: string) => void }) {
   const group = useRef<THREE.Group>(null);
   const leftArm = useRef<THREE.Group>(null);
   const rightArm = useRef<THREE.Group>(null);
@@ -76,7 +76,7 @@ function Avatar({ person, local = false, socialEffects, allPeople, onSelectParti
     if (leftLeg.current) leftLeg.current.rotation.x = sitting ? -1.15 : fallen ? 0.8 : -swing * 0.8;
     if (rightLeg.current) rightLeg.current.rotation.x = sitting ? -1.15 : fallen ? -0.35 : swing * 0.8;
   });
-  return <group ref={group} position={[person.x, 0, person.z]} onClick={(event) => { if (!local && onSelectParticipant) { event.stopPropagation(); onSelectParticipant(person); } }}>
+  return <group ref={group} position={[person.x, 0, person.z]} onClick={(event) => { if (!local && onSelectParticipant) { event.stopPropagation(); onSelectParticipant(person.id); } }}>
     <mesh position={[0, 0.57, 0]} castShadow><capsuleGeometry args={[0.23, 0.34, 5, 10]} /><meshStandardMaterial color={bodyColor} roughness={0.58} /></mesh>
     <mesh position={[0, 0.33, 0]} castShadow><sphereGeometry args={[0.2, 16, 12]} /><meshStandardMaterial color={bodyColor} roughness={0.7} /></mesh>
     <group ref={leftArm} position={[-0.25, 0.67, 0]}><mesh position={[0, -0.18, 0]} rotation={[0, 0, -0.12]} castShadow><capsuleGeometry args={[0.075, 0.28, 4, 8]} /><meshStandardMaterial color={bodyColor} /></mesh><mesh position={[0, -0.34, 0.015]}><sphereGeometry args={[0.075, 10, 8]} /><meshStandardMaterial color="#f1d3c3" /></mesh></group>
