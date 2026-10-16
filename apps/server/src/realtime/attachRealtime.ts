@@ -109,7 +109,9 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
         if (action === 'sit_chair') {
           const seats = Array.from({ length: 5 }, (_, row) =>
             Array.from({ length: 8 }, (_, col) => ({ x: (col - 3.5) * 1.25, z: 1 + row * 1.65 }))).flat();
-          const seat = seats.sort((a, b) => Math.hypot(a.x - actor.x, a.z - actor.z) - Math.hypot(b.x - actor.x, b.z - actor.z))[0];
+          const availableSeats = seats.filter((seat) => ![...found.room.participants.values()].some((person) =>
+            person.id !== actor.id && person.pose === 'sitting_chair' && Math.hypot(person.x - seat.x, person.z - seat.z) < 0.7));
+          const seat = availableSeats.sort((a, b) => Math.hypot(a.x - actor.x, a.z - actor.z) - Math.hypot(b.x - actor.x, b.z - actor.z))[0];
           if (!seat || !closeEnough(actor, seat, 1.3)) {
             if (actor.socketId) io.to(actor.socketId).emit('social:response', { accepted: false, message: 'Aproxime-se de uma cadeira para sentar.' });
             return;
@@ -188,6 +190,15 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
       if (!currentParticipant || currentParticipant.socketId !== socket.id) return;
       const current = setParticipantSocket(roomId, participantId, undefined);
       if (!current) return;
+      const heldPartnerId = current.participant.holdingHandsWith;
+      if (heldPartnerId) {
+        delete current.participant.holdingHandsWith;
+        const heldPartner = current.room.participants.get(heldPartnerId);
+        if (heldPartner) {
+          delete heldPartner.holdingHandsWith;
+          io.to(roomId).emit('avatar:moved', safeParticipant(heldPartner));
+        }
+      }
       io.to(roomId).emit('participant:left', { participantId });
       setTimeout(() => removeDisconnectedParticipant(roomId, participantId, token), 120_000).unref();
     });
