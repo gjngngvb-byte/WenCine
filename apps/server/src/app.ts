@@ -15,6 +15,7 @@ export async function buildApp() {
   await app.register(helmet);
   const isVercelProjectOrigin = (origin: string | undefined) =>
     !origin || allowedOrigins.includes(origin) ||
+    origin === 'https://wen-cine.vercel.app' ||
     /^https:\/\/wen-cine-[a-z0-9-]+-ciels-projects-9299fbb3\.vercel\.app$/.test(origin);
   await app.register(cors, {
     origin: (origin, callback) => callback(null, isVercelProjectOrigin(origin)),
