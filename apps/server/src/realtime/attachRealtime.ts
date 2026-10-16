@@ -14,6 +14,7 @@ const ChatSchema = z.object({ message: z.string().trim().min(1).max(500) });
 export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
   const isAllowedOrigin = (origin: string | undefined) =>
     !origin || allowedOrigins.includes(origin) ||
+    origin === 'https://wen-cine.vercel.app' ||
     /^https:\/\/wen-cine-[a-z0-9-]+-ciels-projects-9299fbb3\.vercel\.app$/.test(origin);
   const io = new Server(server, { cors: {
     origin: (origin, callback) => callback(null, isAllowedOrigin(origin)),
