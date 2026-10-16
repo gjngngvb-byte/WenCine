@@ -146,6 +146,8 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   const isHoldingHands = participants.some((person) => person.id === selfId && person.holdingHandsWith);
   const nearestSeatDistance = Math.min(...Array.from({ length: 5 }, (_, row) =>
     Array.from({ length: 8 }, (_, col) => Math.hypot(position.x - (col - 3.5) * 1.25, position.z - (1 + row * 1.65)))).flat());
+  const seatedNeighbor = pose === 'sitting_chair' && nearbyParticipant?.pose === 'sitting_chair' &&
+    Math.hypot(nearbyParticipant.x - position.x, nearbyParticipant.z - position.z) <= 1.85 ? nearbyParticipant : undefined;
 
   function socialAction(action: string, extra: { targetId?: string | undefined; requestId?: string | undefined; rating?: number | undefined } = {}) {
     socketRef.current?.emit('social:action', { action, ...extra });
@@ -194,6 +196,14 @@ export function RoomExperience({ roomId }: { roomId: string }) {
           <button onClick={() => socialAction('throw_popcorn')}>🍿 Jogar pipoca na tela</button>
           <button onClick={() => socialAction('throw_tomato')}>🍅 Jogar tomate na tela</button>
         </div>
+        {seatedNeighbor && <div className="seat-social"><strong>🍿 Parceiros de poltrona</strong><p>Você e {seatedNeighbor.displayName} estão sentados lado a lado!</p>
+          <div className="social-actions">
+            <button onClick={() => socialAction('handsy', { targetId: seatedNeighbor.id })}>🫶 Mão boba (pedir)</button>
+            <button onClick={() => socialAction('kiss', { targetId: seatedNeighbor.id })}>💋 Beijo de cinema (pedir)</button>
+            <button onClick={() => socialAction('peck', { targetId: seatedNeighbor.id })}>💗 Selinho (pedir)</button>
+            <button onClick={() => socialAction('slap', { targetId: seatedNeighbor.id })}>🖐️ Tapinha</button>
+            <button onClick={() => socialAction('steal_popcorn', { targetId: seatedNeighbor.id })}>🥷 Roubar pipoca</button>
+          </div></div>}
         {pendingRequest && <div className="social-request" role="status"><strong>{pendingRequest.fromName}</strong> quer {pendingRequest.action === 'hold_hands' ? 'segurar sua mão' : pendingRequest.action === 'kiss' ? 'te beijar' : pendingRequest.action === 'peck' ? 'te dar um selinho' : 'fazer carinho'}.
           <div><button onClick={() => { socialAction('accept_interaction', { requestId: pendingRequest.requestId }); setPendingRequest(null); }}>Aceitar</button><button onClick={() => { socialAction('decline_interaction', { requestId: pendingRequest.requestId }); setPendingRequest(null); }}>Recusar</button></div></div>}
         {socialStatus && <p className="social-status" aria-live="polite">{socialStatus}</p>}
