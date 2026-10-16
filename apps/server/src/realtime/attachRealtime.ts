@@ -115,7 +115,7 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
         const ratings = filmRatings.get(roomId) ?? new Map<string, number>();
         ratings.set(actor.id, rating); filmRatings.set(roomId, ratings);
         const values = [...ratings.values()];
-        io.to(roomId).emit('film:ratings', { count: values.length, average: values.reduce((sum, value) => sum + value, 0) / values.length, ownRating: rating });
+        io.to(roomId).emit('film:ratings', { count: values.length, average: values.reduce((sum, value) => sum + value, 0) / values.length, actorId: actor.id, rating });
         return;
       }
       if (action === 'accept_interaction' || action === 'decline_interaction') {
