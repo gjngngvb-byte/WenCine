@@ -1,0 +1,31 @@
+{
+  "name": "wencine",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Cinema virtual 3D multijogador",
+  "packageManager": "pnpm@9.15.5",
+  "engines": { "node": ">=22 <23" },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @wencine/web --filter @wencine/server dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "check:env": "node scripts/check-env.mjs",
+    "check:assets": "node scripts/check-assets.mjs",
+    "db:generate": "pnpm --filter @wencine/database db:generate"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.22.0",
+    "@playwright/test": "1.51.1",
+    "@types/node": "22.13.10",
+    "eslint": "9.22.0",
+    "prettier": "3.5.3",
+    "typescript": "5.8.2",
+    "typescript-eslint": "8.26.1",
+    "vitest": "3.0.8"
+  }
+}

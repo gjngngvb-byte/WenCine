@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoomVisibility { PUBLIC PRIVATE UNLISTED }
+enum RoomRole { OWNER MODERATOR MEMBER }
+
+model User {
+  id           String @id @default(cuid())
+  displayName  String @db.VarChar(32)
+  email        String @unique @db.VarChar(254)
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  roomsOwned   Room[] @relation("RoomOwner")
+  memberships  RoomParticipant[]
+  inventory    InventoryEntry[]
+  avatar       AvatarProfile?
+}
+
+model Room {
+  id           String @id @default(cuid())
+  name         String @db.VarChar(80)
+  visibility   RoomVisibility @default(PRIVATE)
+  ownerId      String
+  owner        User @relation("RoomOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  participants RoomParticipant[]
+  playback     PlaybackState?
+  grants       ItemGrant[]
+  @@index([visibility, createdAt])
+}
+
+model RoomParticipant {
+  id       String @id @default(cuid())
+  roomId   String
+  userId   String
+  role     RoomRole @default(MEMBER)
+  joinedAt DateTime @default(now())
+  room     Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user     User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([roomId, userId])
+  @@index([userId])
+}
+
+model PlaybackState {
+  id          String @id @default(cuid())
+  roomId      String @unique
+  provider    String @db.VarChar(40)
+  mediaUrl    String
+  positionSec Float @default(0)
+  isPlaying   Boolean @default(false)
+  updatedAt   DateTime @updatedAt
+  room        Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+}
+
+model CatalogItem {
+  id          String @id @default(cuid())
+  slug        String @unique
+  name        String @db.VarChar(80)
+  description String @db.VarChar(500)
+  assetKey    String?
+  exclusive   Boolean @default(false)
+  createdAt   DateTime @default(now())
+  inventory   InventoryEntry[]
+  grants      ItemGrant[]
+}
+
+model InventoryEntry {
+  id        String @id @default(cuid())
+  userId    String
+  itemId    String
+  quantity  Int @default(1)
+  grantedAt DateTime @default(now())
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item      CatalogItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  @@unique([userId, itemId])
+}
+
+model ItemGrant {
+  id          String @id @default(cuid())
+  roomId      String
+  itemId      String
+  grantedBy   String
+  recipientId String
+  createdAt   DateTime @default(now())
+  room        Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  item        CatalogItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  @@index([recipientId, createdAt])
+}
+
+model AvatarProfile {
+  id          String @id @default(cuid())
+  userId      String @unique
+  color       String @default("#8b5cf6")
+  accessories Json @default("[]")
+  expression  String @default("neutral")
+  updatedAt   DateTime @updatedAt
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
