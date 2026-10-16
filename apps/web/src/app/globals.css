@@ -136,3 +136,11 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #
 .game-controls-help kbd { min-width: 3.6rem; padding: .22rem .35rem; border: 1px solid #514365; border-bottom-width: 2px; border-radius: .35rem; background: #100e19; color: #f4edff; font-size: .68rem; text-align: center; }
 .game-controls-help span { margin-left: auto; color: var(--text); }
 .context-prompt { margin: .75rem 0; padding: .75rem; border: 1px solid #8b5cf655; border-radius: .7rem; background: #8b5cf614; color: #e5dcff; font-size: .76rem; line-height: 1.5; }
+
+/* Menu contextual do amigo selecionado na poltrona ao lado */
+.friend-interactions { display: grid; gap: .65rem; margin: .8rem 0; padding: .85rem; border: 1px solid #8b5cf677; border-radius: .85rem; background: linear-gradient(145deg, #251a39, #151321); box-shadow: 0 .5rem 1.5rem #0003; }
+.friend-interactions h3 { margin: 0; font-size: .9rem; }
+.friend-interactions .muted-copy { margin: 0; font-size: .75rem; }
+.friend-interaction-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; }
+.friend-interaction-actions button { min-height: 2.5rem; border: 1px solid #a78bfa55; border-radius: .55rem; padding: .45rem .55rem; background: #8b5cf61a; color: #f3edff; font-size: .76rem; font-weight: 650; cursor: pointer; }
+.friend-interaction-actions button:hover { background: #8b5cf644; border-color: #c4b5fd; }
