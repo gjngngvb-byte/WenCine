@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 type PublicRoom = { id: string; name: string; visibility: 'public' | 'private'; participantCount: number; maxParticipants: number };
