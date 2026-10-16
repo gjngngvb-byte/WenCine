@@ -7,7 +7,7 @@ import { CinemaCanvas } from '../../../three/CinemaCanvas';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL ?? API;
-type Participant = { id: string; displayName: string; role: 'owner' | 'member'; color: string; accessory: string; expression: string; x: number; z: number; rotation: number; connected: boolean; pose?: 'standing' | 'sitting' | 'fallen'; holdingHandsWith?: string };
+type Participant = { id: string; displayName: string; role: 'owner' | 'member'; color: string; accessory: string; expression: string; x: number; z: number; rotation: number; connected: boolean; pose?: 'standing' | 'sitting' | 'sitting_chair' | 'fallen'; holdingHandsWith?: string };
 type Room = { id: string; name: string; visibility: 'public' | 'private'; maxParticipants: number; participantCount: number; participants?: Participant[] };
 type ChatMessage = { id: string; participantId: string; displayName: string; role: string; message: string; sentAt: number };
 
@@ -28,7 +28,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   const [expression, setExpression] = useState('neutral');
   const [showCustomize, setShowCustomize] = useState(false);
   const [mobileDirection, setMobileDirection] = useState('');
-  const [pose, setPose] = useState<'standing' | 'sitting' | 'fallen'>('standing');
+  const [pose, setPose] = useState<'standing' | 'sitting' | 'sitting_chair' | 'fallen'>('standing');
   const [pendingRequest, setPendingRequest] = useState<{ requestId: string; fromId: string; fromName: string; action: string } | null>(null);
   const [socialStatus, setSocialStatus] = useState('');
   const [socialEffects, setSocialEffects] = useState<Array<{ id: string; action: string; actorId: string; targetId?: string; sentAt: number }>>([]);
@@ -144,6 +144,8 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     .filter((item) => item.distance <= 2.6)
     .sort((a, b) => a.distance - b.distance)[0]?.person;
   const isHoldingHands = participants.some((person) => person.id === selfId && person.holdingHandsWith);
+  const nearestSeatDistance = Math.min(...Array.from({ length: 5 }, (_, row) =>
+    Array.from({ length: 8 }, (_, col) => Math.hypot(position.x - (col - 3.5) * 1.25, position.z - (1 + row * 1.65)))).flat());
 
   function socialAction(action: string, extra: { targetId?: string; requestId?: string; rating?: number } = {}) {
     socketRef.current?.emit('social:action', { action, ...extra });
@@ -176,7 +178,9 @@ export function RoomExperience({ roomId }: { roomId: string }) {
       <section className="side-panel social-panel"><div className="panel-heading"><h2>Interações</h2><span className="chat-live">SOCIAL</span></div>
         <p className="muted-copy">{nearbyParticipant ? 'Perto de: ' + nearbyParticipant.displayName : 'Aproxime-se de alguém para interagir. Você também pode sentar ou avaliar o filme.'}</p>
         <div className="social-actions">
-          <button onClick={() => { const next = pose === 'sitting' ? 'stand' : 'sit'; setPose(next === 'sit' ? 'sitting' : 'standing'); socialAction(next); }}>{pose === 'sitting' ? '🧍 Levantar' : '🪑 Sentar'}</button>
+          <button onClick={() => { setPose('sitting'); socialAction('sit_floor'); }}>🧘 Sentar no chão</button>
+          <button disabled={nearestSeatDistance > 1.3} onClick={() => { setPose('sitting_chair'); socialAction('sit_chair'); }}>🪑 Sentar na cadeira</button>
+          <button onClick={() => { setPose('standing'); socialAction('stand'); }}>🧍 Levantar</button>
           <button onClick={() => { setPose('fallen'); socialAction('fall'); }}>🤸 Cair</button>
           <button onClick={() => { setPose('standing'); socialAction('stand'); }}>↗️ Levantar do chão</button>
           <button disabled={!nearbyParticipant} onClick={() => socialAction('offer_hand', { targetId: nearbyParticipant?.id })}>🤝 Oferecer a mão</button>
