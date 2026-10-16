@@ -40,7 +40,7 @@ export function findRoom(roomId: string) { return rooms.get(roomId.toUpperCase()
 export function listPublicRooms() {
   return [...rooms.values()].filter((room) => room.visibility === 'public').map((room) => toPublicRoom(room));
 }
-export function joinRoom(input: { roomId: string; displayName: string; accessCode?: string; ownerToken?: string; participantToken?: string }) {
+export function joinRoom(input: { roomId: string; displayName: string; accessCode?: string | undefined; ownerToken?: string | undefined; participantToken?: string | undefined }) {
   const normalized = input.roomId.trim().toUpperCase();
   const room = findRoom(normalized) ?? [...rooms.values()].find((candidate) =>
     candidate.visibility === 'private' && candidate.inviteCode === normalized);
