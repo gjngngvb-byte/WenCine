@@ -108,7 +108,7 @@ function Avatar({ person, local = false, socialEffects, allPeople, onSelectParti
 function CinemaScene({ participants, selfId, position, color, accessory, expression, pose, socialEffects, nearbySeat, onSitChair, onSelectParticipant }: {
   participants: Participant[]; selfId: string; position: { x: number; z: number; rotation: number };
   color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; socialEffects: SocialEffect[];
-  nearbySeat: { x: number; z: number } | null; onSitChair: (() => void) | undefined; onSelectParticipant?: (person: Participant) => void;
+  nearbySeat: { x: number; z: number } | null; onSitChair: (() => void) | undefined; onSelectParticipant?: (participantId: string) => void;
 }) {
   const localPerson: Participant = { id: selfId || 'local', displayName: 'Você', color, accessory, expression, ...position, connected: true, pose };
   return <>
@@ -156,7 +156,7 @@ function ThrownSnack({ effect, x, z }: { effect: SocialEffect; x: number; z: num
 export function CinemaCanvas({ participants, selfId, position, color, accessory, expression, pose, socialEffects, nearbySeat, onSitChair, onSelectParticipant }: {
   participants: Participant[]; selfId: string; position: { x: number; z: number; rotation: number };
   color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; socialEffects: SocialEffect[];
-  nearbySeat: { x: number; z: number } | null; onSitChair: (() => void) | undefined; onSelectParticipant?: (person: Participant) => void;
+  nearbySeat: { x: number; z: number } | null; onSitChair: (() => void) | undefined; onSelectParticipant?: (participantId: string) => void;
 }) {
   return <Canvas camera={{ position: [0, 5.5, 10], fov: 54 }} dpr={[1, 1.35]} shadows fallback={<p>Este dispositivo não consegue renderizar a cena 3D.</p>}>
     <CinemaScene participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} nearbySeat={nearbySeat} onSitChair={onSitChair} onSelectParticipant={onSelectParticipant} />
