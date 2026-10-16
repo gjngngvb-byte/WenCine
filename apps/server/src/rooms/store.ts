@@ -6,6 +6,7 @@ export interface Participant {
   id: string; token: string; displayName: string; role: ParticipantRole; color: string;
   accessory: string; expression: string; x: number; z: number; rotation: number;
   connected: boolean; socketId?: string; joinedAt: number;
+  pose: 'standing' | 'sitting' | 'fallen'; holdingHandsWith?: string; action?: string; actionAt?: number;
 }
 export interface Room {
   id: string; name: string; visibility: RoomVisibility; inviteCode: string; ownerToken: string;
@@ -61,7 +62,7 @@ export function joinRoom(input: { roomId: string; displayName: string; accessCod
   if (count >= room.maxParticipants) return { error: 'ROOM_FULL' as const };
   const participant: Participant = { id: randomUUID(), token: randomUUID(), displayName: input.displayName.trim().slice(0, 32),
     role: isOwner ? 'owner' : 'member', color: '#a78bfa', accessory: 'none', expression: 'neutral',
-    x: (Math.random() - 0.5) * 3, z: 2 + Math.random() * 2, rotation: 0, connected: true, joinedAt: Date.now() };
+    x: (Math.random() - 0.5) * 3, z: 2 + Math.random() * 2, rotation: 0, connected: true, joinedAt: Date.now(), pose: 'standing' };
   room.participants.set(participant.id, participant);
   return { room, participant, participantToken: participant.token, reconnected: false };
 }
