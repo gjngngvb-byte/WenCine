@@ -7,7 +7,7 @@ import * as THREE from 'three';
 
 type Participant = {
   id: string; displayName: string; color: string; accessory: string; expression: string;
-  x: number; z: number; rotation: number; connected: boolean; pose?: 'standing' | 'sitting' | 'sitting_chair' | 'fallen'; holdingHandsWith?: string;
+  x: number; z: number; rotation: number; connected: boolean; pose?: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; holdingHandsWith?: string;
 };
 type SocialEffect = { id: string; action: string; actorId: string; targetId?: string; sentAt: number };
 function Seat({ position }: { position: [number, number, number] }) {
@@ -49,15 +49,17 @@ function Avatar({ person, local = false, socialEffects, allPeople }: { person: P
     const targetZ = person.z + (partner ? contactDz / contactLength * 0.34 : 0);
     const sitting = person.pose === 'sitting' || person.pose === 'sitting_chair';
     const fallen = person.pose === 'fallen';
-    const targetY = person.pose === 'sitting_chair' ? 0.18 : person.pose === 'sitting' ? -0.22 : fallen ? -0.08 : 0;
+    const lyingBack = person.pose === 'lying_back';
+    const crouching = person.pose === 'crouching';
+    const targetY = person.pose === 'sitting_chair' ? 0.18 : person.pose === 'sitting' ? -0.22 : fallen || lyingBack ? -0.08 : 0;
     const jumpLift = activeEffect?.action === 'jump' && age < 1 ? Math.sin(age * Math.PI) * 0.68 : 0;
     group.current.position.lerp(new THREE.Vector3(targetX, targetY + jumpLift, targetZ), Math.min(1, delta * (isContactAnimation ? 7 : 9)));
     const targetRotation = partner ? Math.atan2(contactDx, contactDz) : person.rotation;
     group.current.rotation.y = THREE.MathUtils.damp(group.current.rotation.y, targetRotation, delta, isContactAnimation ? 7 : 10);
     group.current.rotation.z = THREE.MathUtils.damp(group.current.rotation.z, fallen ? -1.12 : 0, delta, 7);
-    group.current.rotation.x = THREE.MathUtils.damp(group.current.rotation.x, partner ? (activeEffect?.action === 'kiss' ? -0.08 + Math.sin(performance.now() * 0.004) * 0.02 : -0.035 * Math.sin(age * Math.PI)) : 0, delta, 8);
-    group.current.scale.y = THREE.MathUtils.damp(group.current.scale.y, activeEffect?.action === 'crouch' && age < 1 ? 0.72 : 1, delta, 12);
-    const moving = !sitting && !fallen && Math.hypot(person.x - lastPosition.current.x, person.z - lastPosition.current.z) > 0.002;
+    group.current.rotation.x = THREE.MathUtils.damp(group.current.rotation.x, lyingBack ? -Math.PI / 2 : partner ? (activeEffect?.action === 'kiss' ? -0.08 + Math.sin(performance.now() * 0.004) * 0.02 : -0.035 * Math.sin(age * Math.PI)) : 0, delta, 8);
+    group.current.scale.y = THREE.MathUtils.damp(group.current.scale.y, crouching ? 0.68 : 1, delta, 12);
+    const moving = !sitting && !fallen && !lyingBack && Math.hypot(person.x - lastPosition.current.x, person.z - lastPosition.current.z) > 0.002;
     lastPosition.current = { x: person.x, z: person.z };
     gait.current = THREE.MathUtils.damp(gait.current, moving ? 1 : 0, delta, 9);
     const swing = Math.sin(performance.now() * 0.012) * gait.current * 0.62;
@@ -104,7 +106,7 @@ function Avatar({ person, local = false, socialEffects, allPeople }: { person: P
 }
 function CinemaScene({ participants, selfId, position, color, accessory, expression, pose, socialEffects, nearbySeat, onSitChair }: {
   participants: Participant[]; selfId: string; position: { x: number; z: number; rotation: number };
-  color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen'; socialEffects: SocialEffect[];
+  color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; socialEffects: SocialEffect[];
   nearbySeat: { x: number; z: number } | null; onSitChair: (() => void) | undefined;
 }) {
   const localPerson: Participant = { id: selfId || 'local', displayName: 'Você', color, accessory, expression, ...position, connected: true, pose };
@@ -152,7 +154,7 @@ function ThrownSnack({ effect, x, z }: { effect: SocialEffect; x: number; z: num
 }
 export function CinemaCanvas({ participants, selfId, position, color, accessory, expression, pose, socialEffects, nearbySeat, onSitChair }: {
   participants: Participant[]; selfId: string; position: { x: number; z: number; rotation: number };
-  color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen'; socialEffects: SocialEffect[];
+  color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; socialEffects: SocialEffect[];
   nearbySeat: { x: number; z: number } | null; onSitChair: (() => void) | undefined;
 }) {
   return <Canvas camera={{ position: [0, 5.5, 10], fov: 54 }} dpr={[1, 1.35]} shadows fallback={<p>Este dispositivo não consegue renderizar a cena 3D.</p>}>
