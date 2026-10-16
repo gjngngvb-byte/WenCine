@@ -104,12 +104,25 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   }, [color, accessory, expression]);
   const heldKeys = useRef(new Set<string>());
   useEffect(() => {
+    let lastCtrlTap = 0;
+    let seatedActionIndex = 0;
     function onKeyDown(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null;
       if (target?.matches('input, textarea, select, button')) return;
       const key = event.key.toLowerCase();
       if (['w', 'a', 's', 'd', 'arrowup', 'arrowleft', 'arrowdown', 'arrowright', 'shift'].includes(key)) {
-        event.preventDefault(); heldKeys.current.add(key);
+        event.preventDefault(); heldKeys.current.add(key); return;
+      }
+      if (event.repeat) return;
+      if (key === ' ') { event.preventDefault(); if (pose === 'fallen') { setPose('standing'); socialAction('stand'); } else socialAction('jump'); }
+      if (key === 'control') { const now = Date.now(); socialAction(now - lastCtrlTap < 350 ? 'lie_back' : 'crouch'); lastCtrlTap = now; }
+      if (key === 'e') {
+        event.preventDefault();
+        if (pose === 'sitting' || pose === 'sitting_chair' || pose === 'fallen') { setPose('standing'); socialAction('stand'); return; }
+        if (nearestSeatDistance <= 1.3) { setPose('sitting_chair'); socialAction('sit_chair'); return; }
+        if (seatedNeighbor) { const actions = ['handsy', 'steal_popcorn', 'slap']; const action = actions[seatedActionIndex % actions.length]!; seatedActionIndex += 1; socialAction(action, { targetId: seatedNeighbor.id }); return; }
+        if (nearbyParticipant) { socialAction('offer_hand', { targetId: nearbyParticipant.id }); return; }
+        socialAction('throw_popcorn');
       }
     }
     function onKeyUp(event: KeyboardEvent) { heldKeys.current.delete(event.key.toLowerCase()); }
@@ -166,7 +179,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     {error && <p className="inline-error" role="status">{error}</p>}
     <div className="experience-layout"><section className="cinema-stage"><div className="stage-label"><span>WENCINE / SALA 3D</span><span>{participants.filter((p) => p.connected).length} participante(s)</span></div>
       <div className="canvas-wrap"><CinemaCanvas participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} /></div>
-      <div className="movement-help">WASD / setas para caminhar · Use os controles na tela no celular </div>
+      <div className="movement-help">WASD / setas: andar · Espaço: pular · E: interagir · Shift: correr · Ctrl: agachar · Ctrl duas vezes: deitar</div>
       <div className="mobile-controls" aria-label="Controles de movimentação"><button onPointerDown={() => setMobileDirection('up')} onPointerUp={() => setMobileDirection('')} onPointerLeave={() => setMobileDirection('')} aria-label="Andar para frente">↑</button>
         <div><button onPointerDown={() => setMobileDirection('left')} onPointerUp={() => setMobileDirection('')} onPointerLeave={() => setMobileDirection('')} aria-label="Andar para esquerda">←</button>
           <button onPointerDown={() => setMobileDirection('down')} onPointerUp={() => setMobileDirection('')} onPointerLeave={() => setMobileDirection('')} aria-label="Andar para trás">↓</button>
@@ -177,33 +190,11 @@ export function RoomExperience({ roomId }: { roomId: string }) {
         <button key={value} className={'color-swatch ' + (color === value ? 'selected' : '')} style={{ background: value }} onClick={() => setColor(value)} aria-label={'Selecionar cor ' + value} />)}</div></label>
         <label>Acessório <select value={accessory} onChange={(event) => setAccessory(event.target.value)}><option value="none">Nenhum</option><option value="cap">Boné 3D</option><option value="crown">Coroa 3D</option><option value="horns">Chifres 3D</option><option value="halo">Auréola 3D</option><option value="ears">Orelhas 3D</option></select></label>
         <label>Emoção <select value={expression} onChange={(event) => setExpression(event.target.value)}><option value="neutral">Neutro</option><option value="happy">Feliz</option><option value="sad">Triste</option><option value="angry">Bravo</option><option value="love">Apaixonado</option><option value="surprised">Surpreso</option><option value="shy">Tímido</option><option value="sleepy">Sonolento</option></select></label></div>}</section>
-      <section className="side-panel social-panel"><div className="panel-heading"><h2>Interações</h2><span className="chat-live">SOCIAL</span></div>
-        <p className="muted-copy">{nearbyParticipant ? 'Perto de: ' + nearbyParticipant.displayName : 'Aproxime-se de alguém para interagir. Você também pode sentar ou avaliar o filme.'}</p>
-        <div className="social-actions">
-          <button onClick={() => { setPose('sitting'); socialAction('sit_floor'); }}>🧘 Sentar no chão</button>
-          <button disabled={nearestSeatDistance > 1.3} onClick={() => { setPose('sitting_chair'); socialAction('sit_chair'); }}>🪑 Sentar na cadeira</button>
-          <button onClick={() => { setPose('standing'); socialAction('stand'); }}>🧍 Levantar</button>
-          <button onClick={() => { setPose('fallen'); socialAction('fall'); }}>🤸 Cair</button>
-          <button onClick={() => { setPose('standing'); socialAction('stand'); }}>↗️ Levantar do chão</button>
-          <button disabled={!nearbyParticipant} onClick={() => socialAction('offer_hand', { targetId: nearbyParticipant?.id })}>🤝 Oferecer a mão</button>
-          {isHoldingHands && <button onClick={() => socialAction('release_hand')}>✋ Soltar as mãos</button>}
-          <button disabled={!nearbyParticipant} onClick={() => socialAction('share_popcorn', { targetId: nearbyParticipant?.id })}>🍿 Dividir pipoca</button>
-          <button disabled={!nearbyParticipant} onClick={() => socialAction('kiss', { targetId: nearbyParticipant?.id })}>💋 Pedir beijo</button>
-          <button disabled={!nearbyParticipant} onClick={() => socialAction('peck', { targetId: nearbyParticipant?.id })}>💗 Pedir selinho</button>
-          <button disabled={!nearbyParticipant} onClick={() => socialAction('handsy', { targetId: nearbyParticipant?.id })}>🫶 Pedir carinho</button>
-          <button disabled={!nearbyParticipant} onClick={() => socialAction('slap', { targetId: nearbyParticipant?.id })}>🖐️ Tapinha</button>
-          <button disabled={!nearbyParticipant} onClick={() => socialAction('steal_popcorn', { targetId: nearbyParticipant?.id })}>🥷 Roubar pipoca</button>
-          <button onClick={() => socialAction('throw_popcorn')}>🍿 Jogar pipoca na tela</button>
-          <button onClick={() => socialAction('throw_tomato')}>🍅 Jogar tomate na tela</button>
-        </div>
-        {seatedNeighbor && <div className="seat-social"><strong>🍿 Parceiros de poltrona</strong><p>Você e {seatedNeighbor.displayName} estão sentados lado a lado!</p>
-          <div className="social-actions">
-            <button onClick={() => socialAction('handsy', { targetId: seatedNeighbor.id })}>🫶 Mão boba (pedir)</button>
-            <button onClick={() => socialAction('kiss', { targetId: seatedNeighbor.id })}>💋 Beijo de cinema (pedir)</button>
-            <button onClick={() => socialAction('peck', { targetId: seatedNeighbor.id })}>💗 Selinho (pedir)</button>
-            <button onClick={() => socialAction('slap', { targetId: seatedNeighbor.id })}>🖐️ Tapinha</button>
-            <button onClick={() => socialAction('steal_popcorn', { targetId: seatedNeighbor.id })}>🥷 Roubar pipoca</button>
-          </div></div>}
+      <section className="side-panel social-panel"><div className="panel-heading"><h2>Controles</h2><span className="chat-live">JOGO</span></div>
+        <div className="game-controls-help"><p><kbd>W A S D</kbd> / setas <span>Andar</span></p><p><kbd>Espaço</kbd><span>Pular</span></p><p><kbd>E</kbd><span>Interagir</span></p><p><kbd>Shift</kbd><span>Correr</span></p><p><kbd>Ctrl</kbd><span>Agachar</span></p><p><kbd>Ctrl × 2</kbd><span>Deitar de costas</span></p></div>
+        <p className="context-prompt" aria-live="polite">{nearestSeatDistance <= 1.3 && pose === 'standing' ? '🪑 Cadeira próxima: pressione E para sentar' : pose === 'sitting_chair' ? 'Pressione E para levantar' : seatedNeighbor ? '🍿 Ao lado de ' + seatedNeighbor.displayName + ': E alterna mão boba, roubo de pipoca e tapa' : nearbyParticipant ? 'Perto de ' + nearbyParticipant.displayName + ': E para oferecer a mão' : 'Aproxime-se de uma cadeira ou jogador. Pressione E para interagir.'}</p>
+        {nearestSeatDistance <= 1.3 && pose === 'standing' && <button className="primary-button chair-interact-button" onClick={() => { setPose('sitting_chair'); socialAction('sit_chair'); }}>🪑 Sentar nesta cadeira</button>}
+        {isHoldingHands && <p className="social-status">🤝 Mãos dadas · pressione E para levantar ou encerrar a interação.</p>}
         {pendingRequest && <div className="social-request" role="status"><strong>{pendingRequest.fromName}</strong> quer {pendingRequest.action === 'hold_hands' ? 'segurar sua mão' : pendingRequest.action === 'kiss' ? 'te beijar' : pendingRequest.action === 'peck' ? 'te dar um selinho' : 'fazer carinho'}.
           <div><button onClick={() => { socialAction('accept_interaction', { requestId: pendingRequest.requestId }); setPendingRequest(null); }}>Aceitar</button><button onClick={() => { socialAction('decline_interaction', { requestId: pendingRequest.requestId }); setPendingRequest(null); }}>Recusar</button></div></div>}
         {socialStatus && <p className="social-status" aria-live="polite">{socialStatus}</p>}
