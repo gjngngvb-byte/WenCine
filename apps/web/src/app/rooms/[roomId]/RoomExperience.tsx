@@ -95,8 +95,8 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     const tick = (now: number) => {
       const elapsed = Math.min(0.04, (now - previous) / 1000); previous = now;
       const keys = heldKeys.current;
-      let dx = (keys.has('d') || keys.has('arrowright') ? 1 : 0) - (keys.has('a') || keys.has('arrowleft') ? 1 : 0);
-      let dz = (keys.has('s') || keys.has('arrowdown') ? 1 : 0) - (keys.has('w') || keys.has('arrowup') ? 1 : 0);
+      const dx = (keys.has('d') || keys.has('arrowright') ? 1 : 0) - (keys.has('a') || keys.has('arrowleft') ? 1 : 0);
+      const dz = (keys.has('s') || keys.has('arrowdown') ? 1 : 0) - (keys.has('w') || keys.has('arrowup') ? 1 : 0);
       if (dx || dz) { const length = Math.hypot(dx, dz) || 1; const speed = keys.has('shift') ? 4.2 : 2.8; move(dx / length * speed * elapsed, dz / length * speed * elapsed); }
       frame = window.requestAnimationFrame(tick);
     };
