@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { io, Socket } from 'socket.io-client';
+import { io, type Socket } from 'socket.io-client';
 import { CinemaCanvas } from '../../../three/CinemaCanvas';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
