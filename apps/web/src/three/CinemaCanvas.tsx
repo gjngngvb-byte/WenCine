@@ -131,7 +131,7 @@ function ThrownSnack({ effect, x, z }: { effect: SocialEffect; x: number; z: num
 }
 export function CinemaCanvas({ participants, selfId, position, color, accessory, expression, pose, socialEffects }: {
   participants: Participant[]; selfId: string; position: { x: number; z: number; rotation: number };
-  color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'fallen'; socialEffects: SocialEffect[];
+  color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen'; socialEffects: SocialEffect[];
 }) {
   return <Canvas camera={{ position: [0, 5.5, 10], fov: 54 }} dpr={[1, 1.35]} shadows fallback={<p>Este dispositivo não consegue renderizar a cena 3D.</p>}>
     <CinemaScene participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} />
