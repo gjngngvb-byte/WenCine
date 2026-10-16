@@ -147,7 +147,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   const nearestSeatDistance = Math.min(...Array.from({ length: 5 }, (_, row) =>
     Array.from({ length: 8 }, (_, col) => Math.hypot(position.x - (col - 3.5) * 1.25, position.z - (1 + row * 1.65)))).flat());
 
-  function socialAction(action: string, extra: { targetId?: string; requestId?: string; rating?: number } = {}) {
+  function socialAction(action: string, extra: { targetId?: string | undefined; requestId?: string | undefined; rating?: number | undefined } = {}) {
     socketRef.current?.emit('social:action', { action, ...extra });
     setSocialStatus(action === 'offer_hand' ? 'Pedido de mão enviado.' : '');
   }
