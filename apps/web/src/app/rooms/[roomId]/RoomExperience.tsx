@@ -55,7 +55,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     socket.on('connect', () => setConnection('Conectado'));
     socket.on('disconnect', () => setConnection('Reconectando'));
     socket.on('connect_error', (cause) => { setConnection('Sem conexão'); setError(cause.message); });
-    socket.on('room:snapshot', (data: { room: Room; selfId: string }) => { setRoom(data.room); setSelfId(data.selfId); setParticipants(data.room.participants ?? []); });
+    socket.on('room:snapshot', (data: { room: Room; selfId: string }) => { setRoom(data.room); setSelfId(data.selfId); setParticipants(data.room.participants ?? []); setPose(data.room.participants?.find((person) => person.id === data.selfId)?.pose ?? 'standing'); });
     socket.on('participant:joined', (person: Participant) => setParticipants((current) => current.some((p) => p.id === person.id) ? current : [...current, person]));
     socket.on('participant:left', ({ participantId }: { participantId: string }) => setParticipants((current) => current.filter((p) => p.id !== participantId)));
     socket.on('avatar:moved', (person: Participant) => {
@@ -64,11 +64,11 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     });
     socket.on('avatar:dragged', (next: { x: number; z: number; rotation: number }) => setPosition(next));
     socket.on('social:request', (request: { requestId: string; fromId: string; fromName: string; action: string }) => setPendingRequest(request));
-    socket.on('social:response', (response: { accepted: boolean; action?: string }) => setSocialStatus(response.accepted ? 'Interação aceita!' : 'A pessoa recusou a interação.'));
+    socket.on('social:response', (response: { accepted: boolean; action?: string; message?: string }) => setSocialStatus(response.message ?? (response.accepted ? 'Interação aceita!' : 'A pessoa recusou a interação.')));
     socket.on('social:effect', (effect: { id: string; action: string; actorId: string; targetId?: string; sentAt: number }) => {
       setSocialEffects((current) => [...current.slice(-24), effect]);
       const labels: Record<string, string> = {
-        sit: 'sentou', stand: 'levantou', fall: 'caiu', hold_hands: 'está de mãos dadas',
+        sit: 'sentou no chão', sit_chair: 'sentou na cadeira', stand: 'levantou', fall: 'caiu', hold_hands: 'está de mãos dadas',
         release_hand: 'soltou as mãos', share_popcorn: 'dividiu a pipoca', kiss: 'deu um beijo',
         peck: 'deu um selinho', slap: 'deu um tapinha', throw_popcorn: 'jogou pipoca na tela',
         throw_tomato: 'jogou um tomate na tela', steal_popcorn: 'roubou pipoca', handsy: 'fez carinho',
