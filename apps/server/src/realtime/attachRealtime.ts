@@ -161,17 +161,22 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
       }
       if (action === 'offer_hand' || action === 'kiss' || action === 'peck' || action === 'handsy') {
         if (!target || !target.connected || target.id === actor.id || !closeEnough(actor, target)) return;
+        const seatedTogether = actor.pose === 'sitting_chair' && target.pose === 'sitting_chair' && Math.hypot(actor.x - target.x, actor.z - target.z) <= 1.85;
+        if (seatedTogether && (action === 'handsy' || action === 'kiss' || action === 'peck')) { notifyAction(target, action); return; }
         const requestedAction = action === 'offer_hand' ? 'hold_hands' : action;
         const id = randomUUID();
         const request: PendingSocialRequest = { id, roomId, fromId: actor.id, toId: target.id, action: requestedAction, createdAt: Date.now() };
         pendingSocialRequests.set(id, request);
-        if (target.socketId) io.to(target.socketId).emit('social:request', {
-          requestId: id, fromId: actor.id, fromName: actor.displayName, action: requestedAction,
-        });
+        if (target.socketId) io.to(target.socketId).emit('social:request', { requestId: id, fromId: actor.id, fromName: actor.displayName, action: requestedAction });
         return;
       }
       if (action === 'share_popcorn' || action === 'slap' || action === 'throw_popcorn' || action === 'throw_tomato' || action === 'steal_popcorn') {
         if (action !== 'throw_popcorn' && action !== 'throw_tomato' && (!target || !target.connected || target.id === actor.id || !closeEnough(actor, target))) return;
+        const seatedTogether = Boolean(target && actor.pose === 'sitting_chair' && target.pose === 'sitting_chair' && Math.hypot(actor.x - target.x, actor.z - target.z) <= 1.85);
+        if (target && !seatedTogether && (action === 'slap' || action === 'steal_popcorn')) {
+          if (actor.socketId) io.to(actor.socketId).emit('social:response', { accepted: false, message: 'Essa interação está disponível quando vocês estão sentados lado a lado.' });
+          return;
+        }
         notifyAction(target, action);
       }
     });
