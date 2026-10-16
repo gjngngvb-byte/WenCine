@@ -7,8 +7,9 @@ import * as THREE from 'three';
 
 type Participant = {
   id: string; displayName: string; color: string; accessory: string; expression: string;
-  x: number; z: number; rotation: number; connected: boolean;
+  x: number; z: number; rotation: number; connected: boolean; pose?: 'standing' | 'sitting' | 'fallen'; holdingHandsWith?: string;
 };
+type SocialEffect = { id: string; action: string; actorId: string; targetId?: string; sentAt: number };
 function Seat({ position }: { position: [number, number, number] }) {
   return <group position={position}>
     <mesh position={[0, 0.38, 0]} castShadow><boxGeometry args={[0.72, 0.18, 0.72]} /><meshStandardMaterial color="#553f70" roughness={0.72} /></mesh>
@@ -18,7 +19,7 @@ function Seat({ position }: { position: [number, number, number] }) {
     <mesh position={[0, 0.18, 0]}><boxGeometry args={[0.58, 0.3, 0.58]} /><meshStandardMaterial color="#29213d" /></mesh>
   </group>;
 }
-function Avatar({ person, local = false }: { person: Participant; local?: boolean }) {
+function Avatar({ person, local = false, socialEffects }: { person: Participant; local?: boolean; socialEffects: SocialEffect[] }) {
   const group = useRef<THREE.Group>(null);
   const leftArm = useRef<THREE.Group>(null);
   const rightArm = useRef<THREE.Group>(null);
@@ -29,17 +30,31 @@ function Avatar({ person, local = false }: { person: Participant; local?: boolea
   const gait = useRef(0);
   useFrame((_, delta) => {
     if (!group.current) return;
-    group.current.position.lerp(new THREE.Vector3(person.x, 0, person.z), Math.min(1, delta * 9));
+    const now = Date.now();
+    const activeEffect = [...socialEffects].reverse().find((effect) =>
+      (effect.actorId === person.id || effect.targetId === person.id) && now - effect.sentAt < 1150);
+    const age = activeEffect ? Math.max(0, (now - activeEffect.sentAt) / 1150) : 1;
+    const sitting = person.pose === 'sitting';
+    const fallen = person.pose === 'fallen';
+    const targetY = sitting ? -0.22 : fallen ? -0.08 : 0;
+    group.current.position.lerp(new THREE.Vector3(person.x, targetY, person.z), Math.min(1, delta * 9));
     group.current.rotation.y = THREE.MathUtils.damp(group.current.rotation.y, person.rotation, delta, 10);
-    const moving = Math.hypot(person.x - lastPosition.current.x, person.z - lastPosition.current.z) > 0.002;
+    group.current.rotation.z = THREE.MathUtils.damp(group.current.rotation.z, fallen ? -1.12 : 0, delta, 7);
+    const moving = !sitting && !fallen && Math.hypot(person.x - lastPosition.current.x, person.z - lastPosition.current.z) > 0.002;
     lastPosition.current = { x: person.x, z: person.z };
     gait.current = THREE.MathUtils.damp(gait.current, moving ? 1 : 0, delta, 9);
     const swing = Math.sin(performance.now() * 0.012) * gait.current * 0.62;
-    if (leftArm.current) leftArm.current.rotation.x = swing;
-    if (rightArm.current) rightArm.current.rotation.x = -swing;
-    if (leftLeg.current) leftLeg.current.rotation.x = -swing * 0.8;
-    if (rightLeg.current) rightLeg.current.rotation.x = swing * 0.8;
-    if (group.current) group.current.position.y = Math.abs(Math.sin(performance.now() * 0.012)) * gait.current * 0.025;
+    const waving = activeEffect && ['slap', 'share_popcorn', 'steal_popcorn', 'hold_hands', 'kiss', 'peck', 'handsy', 'throw_popcorn', 'throw_tomato'].includes(activeEffect.action);
+    if (leftArm.current) {
+      leftArm.current.rotation.x = sitting ? -0.5 : waving && activeEffect?.action === 'hold_hands' ? -0.7 : swing;
+      leftArm.current.rotation.z = waving && activeEffect?.action === 'share_popcorn' ? -0.45 : 0;
+    }
+    if (rightArm.current) {
+      rightArm.current.rotation.x = sitting ? -0.5 : waving ? -Math.sin(age * Math.PI) * 1.45 : -swing;
+      rightArm.current.rotation.z = waving && activeEffect && ['slap', 'throw_popcorn', 'throw_tomato'].includes(activeEffect.action) ? -Math.sin(age * Math.PI) * 0.9 : 0;
+    }
+    if (leftLeg.current) leftLeg.current.rotation.x = sitting ? -1.15 : fallen ? 0.8 : -swing * 0.8;
+    if (rightLeg.current) rightLeg.current.rotation.x = sitting ? -1.15 : fallen ? -0.35 : swing * 0.8;
   });
   return <group ref={group} position={[person.x, 0, person.z]}>
     <mesh position={[0, 0.57, 0]} castShadow><capsuleGeometry args={[0.23, 0.34, 5, 10]} /><meshStandardMaterial color={bodyColor} roughness={0.58} /></mesh>
@@ -64,11 +79,11 @@ function Avatar({ person, local = false }: { person: Participant; local?: boolea
     <mesh position={[0, 1.55, 0]}><sphereGeometry args={[0.035, 8, 8]} /><meshBasicMaterial color={local ? '#34d399' : '#c4b5fd'} /></mesh>
   </group>;
 }
-function CinemaScene({ participants, selfId, position, color, accessory, expression }: {
+function CinemaScene({ participants, selfId, position, color, accessory, expression, pose, socialEffects }: {
   participants: Participant[]; selfId: string; position: { x: number; z: number; rotation: number };
-  color: string; accessory: string; expression: string;
+  color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'fallen'; socialEffects: SocialEffect[];
 }) {
-  const localPerson: Participant = { id: selfId || 'local', displayName: 'Você', color, accessory, expression, ...position, connected: true };
+  const localPerson: Participant = { id: selfId || 'local', displayName: 'Você', color, accessory, expression, ...position, connected: true, pose };
   return <>
     <color attach="background" args={['#11101b']} /><fog attach="fog" args={['#11101b', 12, 26]} />
     <ambientLight intensity={1.1} /><directionalLight position={[0, 7, 3]} intensity={2.1} castShadow shadow-mapSize-width={512} shadow-mapSize-height={512} />
@@ -83,16 +98,36 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
     <mesh position={[9.7, 2.6, 0]}><boxGeometry args={[0.3, 5.2, 21]} /><meshStandardMaterial color="#31263f" /></mesh>
     <mesh position={[0, 5.8, 0]}><boxGeometry args={[19.4, 0.3, 21]} /><meshStandardMaterial color="#191622" /></mesh>
     {Array.from({ length: 9 }, (_, i) => <pointLight key={i} position={[(i - 4) * 2.2, 5.5, 3]} color={i % 2 ? '#8b5cf6' : '#60a5fa'} intensity={1.2} distance={4} />)}
-    <Avatar person={localPerson} local />
-    {participants.filter((person) => person.id !== selfId && person.connected).map((person) => <Avatar key={person.id} person={person} />)}
+    <Avatar person={localPerson} local socialEffects={socialEffects} />
+    {participants.filter((person) => person.id !== selfId && person.connected).map((person) => <Avatar key={person.id} person={person} socialEffects={socialEffects} />)}
+    {socialEffects.filter((effect) => ['throw_popcorn', 'throw_tomato'].includes(effect.action) && Date.now() - effect.sentAt < 1800).map((effect) => {
+      const thrower = participants.find((person) => person.id === effect.actorId) ?? (effect.actorId === selfId ? localPerson : undefined);
+      return thrower ? <ThrownSnack key={effect.id} effect={effect} x={thrower.x} z={thrower.z} /> : null;
+    })}
     <OrbitControls target={[0, 1.2, -2]} enablePan={false} minDistance={4} maxDistance={15} minPolarAngle={0.45} maxPolarAngle={1.55} />
   </>;
 }
-export function CinemaCanvas({ participants, selfId, position, color, accessory, expression }: {
+function ThrownSnack({ effect, x, z }: { effect: SocialEffect; x: number; z: number }) {
+  const mesh = useRef<THREE.Mesh>(null);
+  useFrame(() => {
+    if (!mesh.current) return;
+    const t = Math.min(1, Math.max(0, (Date.now() - effect.sentAt) / 1400));
+    const targetX = x * 0.35;
+    mesh.current.position.set(THREE.MathUtils.lerp(x, targetX, t), 1.2 + Math.sin(t * Math.PI) * 2.1, THREE.MathUtils.lerp(z, -10.2, t));
+    mesh.current.scale.setScalar(effect.action === 'throw_tomato' ? 0.16 : 0.09);
+    mesh.current.rotation.set(t * 7, t * 11, t * 5);
+    mesh.current.visible = t < 1;
+  });
+  return <mesh ref={mesh} position={[x, 1.2, z]} castShadow>
+    <sphereGeometry args={[1, 12, 10]} />
+    <meshStandardMaterial color={effect.action === 'throw_tomato' ? '#ef4444' : '#fbbf24'} roughness={0.55} />
+  </mesh>;
+}
+export function CinemaCanvas({ participants, selfId, position, color, accessory, expression, pose, socialEffects }: {
   participants: Participant[]; selfId: string; position: { x: number; z: number; rotation: number };
-  color: string; accessory: string; expression: string;
+  color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'fallen'; socialEffects: SocialEffect[];
 }) {
   return <Canvas camera={{ position: [0, 5.5, 10], fov: 54 }} dpr={[1, 1.35]} shadows fallback={<p>Este dispositivo não consegue renderizar a cena 3D.</p>}>
-    <CinemaScene participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} />
+    <CinemaScene participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} />
   </Canvas>;
 }
