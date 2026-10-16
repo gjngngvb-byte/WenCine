@@ -29,6 +29,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   const [showCustomize, setShowCustomize] = useState(false);
   const [mobileDirection, setMobileDirection] = useState('');
   const [pose, setPose] = useState<'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'>('standing');
+  const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null);
   const [pendingRequest, setPendingRequest] = useState<{ requestId: string; fromId: string; fromName: string; action: string } | null>(null);
   const [socialStatus, setSocialStatus] = useState('');
   const [socialEffects, setSocialEffects] = useState<Array<{ id: string; action: string; actorId: string; targetId?: string; sentAt: number }>>([]);
@@ -105,7 +106,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
       const now = Date.now();
       const colliding = participantsRef.current.some((person) => person.id !== selfIdRef.current && person.connected && Math.hypot(x - person.x, z - person.z) < 0.58);
       if (blocked || colliding) { x = current.x; z = current.z; }
-      if (colliding && heldKeys.current.has('shift') && now - lastBumpRef.current > 1500) {
+      if ((colliding || blocked) && heldKeys.current.has('shift') && now - lastBumpRef.current > 1500) {
         lastBumpRef.current = now;
         setPose('fallen');
         socketRef.current?.emit('social:action', { action: 'fall' });
@@ -123,7 +124,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     let seatedActionIndex = 0;
     function onKeyDown(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null;
-      if (target?.matches('input, textarea, select, button')) return;
+      if (target?.matches('input, textarea, select')) return;
       const key = event.key.toLowerCase();
       if (['w', 'a', 's', 'd', 'arrowup', 'arrowleft', 'arrowdown', 'arrowright', 'shift'].includes(key)) {
         event.preventDefault(); heldKeys.current.add(key); return;
@@ -180,6 +181,9 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   const nearestSeatDistance = nearestSeat.distance;
   const seatedNeighbor = pose === 'sitting_chair' && nearbyParticipant?.pose === 'sitting_chair' &&
     Math.hypot(nearbyParticipant.x - position.x, nearbyParticipant.z - position.z) <= 1.85 ? nearbyParticipant : undefined;
+  const selectedParticipant = participants.find((person) => person.id === selectedParticipantId && person.id !== selfId && person.connected);
+  const selectedSeatedNeighbor = pose === 'sitting_chair' && selectedParticipant?.pose === 'sitting_chair' &&
+    Math.hypot(selectedParticipant.x - position.x, selectedParticipant.z - position.z) <= 1.85 ? selectedParticipant : undefined;
   gameplayRef.current = { pose, nearestSeatDistance, seatedNeighbor, nearbyParticipant, isHoldingHands };
 
   function socialAction(action: string, extra: { targetId?: string | undefined; requestId?: string | undefined; rating?: number | undefined } = {}) {
@@ -198,7 +202,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
       <div className={'connection-state ' + (connection === 'Conectado' ? 'is-connected' : '')}><span />{connection}</div></header>
     {error && <p className="inline-error" role="status">{error}</p>}
     <div className="experience-layout"><section className="cinema-stage"><div className="stage-label"><span>WENCINE / SALA 3D</span><span>{participants.filter((p) => p.connected).length} participante(s)</span></div>
-      <div className="canvas-wrap"><CinemaCanvas participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} nearbySeat={nearestSeatDistance <= 1.3 && pose === 'standing' ? nearestSeat : null} onSitChair={() => { setPose('sitting_chair'); socialAction('sit_chair'); }} /></div>
+      <div className="canvas-wrap"><CinemaCanvas participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} nearbySeat={nearestSeatDistance <= 1.3 && pose === 'standing' ? nearestSeat : null} onSitChair={() => { heldKeys.current.clear(); setPose('sitting_chair'); socialAction('sit_chair'); }} onSelectParticipant={(id) => setSelectedParticipantId(id)} /></div>
       <div className="movement-help">WASD / setas: andar · Espaço: pular · E: interagir · Shift: correr · Ctrl: agachar · Ctrl duas vezes: deitar</div>
       <div className="mobile-controls" aria-label="Controles de movimentação"><button onPointerDown={() => setMobileDirection('up')} onPointerUp={() => setMobileDirection('')} onPointerLeave={() => setMobileDirection('')} aria-label="Andar para frente">↑</button>
         <div><button onPointerDown={() => setMobileDirection('left')} onPointerUp={() => setMobileDirection('')} onPointerLeave={() => setMobileDirection('')} aria-label="Andar para esquerda">←</button>
@@ -212,6 +216,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
         <label>Emoção <select value={expression} onChange={(event) => setExpression(event.target.value)}><option value="neutral">Neutro</option><option value="happy">Feliz</option><option value="sad">Triste</option><option value="angry">Bravo</option><option value="love">Apaixonado</option><option value="surprised">Surpreso</option><option value="shy">Tímido</option><option value="sleepy">Sonolento</option></select></label></div>}</section>
       <section className="side-panel social-panel"><div className="panel-heading"><h2>Controles</h2><span className="chat-live">JOGO</span></div>
         <div className="game-controls-help"><p><kbd>W A S D</kbd> / setas <span>Andar</span></p><p><kbd>Espaço</kbd><span>Pular</span></p><p><kbd>E</kbd><span>Interagir</span></p><p><kbd>Shift</kbd><span>Correr</span></p><p><kbd>Ctrl</kbd><span>Agachar</span></p><p><kbd>Ctrl × 2</kbd><span>Deitar de costas</span></p></div>
+        {selectedSeatedNeighbor && <div className="friend-interactions" role="group" aria-label={'Interações com ' + selectedSeatedNeighbor.displayName}><div className="panel-heading"><h3>Com {selectedSeatedNeighbor.displayName}</h3><button className="text-button" onClick={() => setSelectedParticipantId(null)}>Fechar</button></div><p className="muted-copy">Vocês estão sentados lado a lado. Escolha uma interação:</p><div className="friend-interaction-actions">{([['kiss','Roubar beijo'],['peck','Roubar selinho'],['steal_popcorn','Roubar pipoca'],['slap','Dar tapa'],['handsy','Fazer carinho'],['share_popcorn','Dividir pipoca']] as const).map(([action,label]) => <button key={action} onClick={() => socialAction(action, { targetId: selectedSeatedNeighbor.id })}>{label}</button>)}</div></div>}
         <p className="context-prompt" aria-live="polite">{isHoldingHands ? '🤝 Mãos dadas: pressione E para soltar' : nearestSeatDistance <= 1.3 && pose === 'standing' ? '🪑 Cadeira próxima: pressione E para sentar' : seatedNeighbor ? '🍿 Ao lado de ' + seatedNeighbor.displayName + ': E alterna dividir pipoca, carinho, beijo, selinho, roubo e tapa. Espaço levanta' : pose === 'sitting_chair' ? 'Pressione E para levantar' : pose === 'crouching' ? 'Agachado · Ctrl para levantar' : pose === 'lying_back' ? 'Deitado · E para levantar'  : nearbyParticipant ? 'Perto de ' + nearbyParticipant.displayName + ': E para oferecer a mão' : 'Aproxime-se de uma cadeira ou jogador. Pressione E para interagir.'}</p>
         
         {isHoldingHands && <p className="social-status">🤝 Mãos dadas · pressione E para levantar ou encerrar a interação.</p>}
