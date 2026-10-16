@@ -7,7 +7,7 @@ import * as THREE from 'three';
 
 type Participant = {
   id: string; displayName: string; color: string; accessory: string; expression: string;
-  x: number; z: number; rotation: number; connected: boolean; pose?: 'standing' | 'sitting' | 'fallen'; holdingHandsWith?: string;
+  x: number; z: number; rotation: number; connected: boolean; pose?: 'standing' | 'sitting' | 'sitting_chair' | 'fallen'; holdingHandsWith?: string;
 };
 type SocialEffect = { id: string; action: string; actorId: string; targetId?: string; sentAt: number };
 function Seat({ position }: { position: [number, number, number] }) {
@@ -34,9 +34,9 @@ function Avatar({ person, local = false, socialEffects }: { person: Participant;
     const activeEffect = [...socialEffects].reverse().find((effect) =>
       (effect.actorId === person.id || effect.targetId === person.id) && now - effect.sentAt < 1150);
     const age = activeEffect ? Math.max(0, (now - activeEffect.sentAt) / 1150) : 1;
-    const sitting = person.pose === 'sitting';
+    const sitting = person.pose === 'sitting' || person.pose === 'sitting_chair';
     const fallen = person.pose === 'fallen';
-    const targetY = sitting ? -0.22 : fallen ? -0.08 : 0;
+    const targetY = person.pose === 'sitting_chair' ? 0.18 : person.pose === 'sitting' ? -0.22 : fallen ? -0.08 : 0;
     group.current.position.lerp(new THREE.Vector3(person.x, targetY, person.z), Math.min(1, delta * 9));
     group.current.rotation.y = THREE.MathUtils.damp(group.current.rotation.y, person.rotation, delta, 10);
     group.current.rotation.z = THREE.MathUtils.damp(group.current.rotation.z, fallen ? -1.12 : 0, delta, 7);
@@ -81,7 +81,7 @@ function Avatar({ person, local = false, socialEffects }: { person: Participant;
 }
 function CinemaScene({ participants, selfId, position, color, accessory, expression, pose, socialEffects }: {
   participants: Participant[]; selfId: string; position: { x: number; z: number; rotation: number };
-  color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'fallen'; socialEffects: SocialEffect[];
+  color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen'; socialEffects: SocialEffect[];
 }) {
   const localPerson: Participant = { id: selfId || 'local', displayName: 'Você', color, accessory, expression, ...position, connected: true, pose };
   return <>
