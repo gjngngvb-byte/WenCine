@@ -12,7 +12,7 @@ const PositionSchema = z.object({ x: z.number().finite(), z: z.number().finite()
 const ChatSchema = z.object({ message: z.string().trim().min(1).max(500) });
 const SocialSchema = z.object({
   action: z.enum(['sit', 'sit_floor', 'sit_chair', 'stand', 'fall', 'offer_hand', 'accept_interaction', 'decline_interaction', 'release_hand',
-    'share_popcorn', 'kiss', 'peck', 'slap', 'throw_popcorn', 'throw_tomato', 'steal_popcorn', 'handsy', 'rate_film']),
+    'share_popcorn', 'kiss', 'peck', 'slap', 'throw_popcorn', 'throw_tomato', 'steal_popcorn', 'handsy', 'rate_film', 'jump', 'crouch', 'lie_back']),
   targetId: z.string().uuid().optional(),
   requestId: z.string().uuid().optional(),
   rating: z.number().int().min(1).max(5).optional(),
@@ -105,6 +105,9 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
         io.to(roomId).emit('avatar:moved', safeParticipant(actor));
         if (targetPerson) io.to(roomId).emit('avatar:moved', safeParticipant(targetPerson));
       };
+      if (action === 'jump') { notifyAction(undefined, action); return; }
+      if (action === 'crouch') { actor.pose = actor.pose === 'crouching' ? 'standing' : 'crouching'; notifyAction(undefined, action); return; }
+      if (action === 'lie_back') { actor.pose = 'lying_back'; notifyAction(undefined, action); return; }
       if (action === 'sit' || action === 'sit_floor' || action === 'sit_chair' || action === 'stand' || action === 'fall') {
         if (action === 'sit_chair') {
           const seats = Array.from({ length: 5 }, (_, row) =>
@@ -116,7 +119,7 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
             if (actor.socketId) io.to(actor.socketId).emit('social:response', { accepted: false, message: 'Aproxime-se de uma cadeira para sentar.' });
             return;
           }
-          updateParticipantPosition(roomId, actor.id, { x: seat.x, z: seat.z + 0.12, rotation: Math.PI });
+          updateParticipantPosition(roomId, actor.id, { x: seat.x, z: seat.z - 0.08, rotation: Math.PI });
         }
         actor.pose = action === 'sit_chair' ? 'sitting_chair' : (action === 'sit' || action === 'sit_floor') ? 'sitting' : action === 'fall' ? 'fallen' : 'standing';
         notifyAction(undefined, action === 'sit_floor' ? 'sit' : action);
@@ -161,17 +164,22 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
       }
       if (action === 'offer_hand' || action === 'kiss' || action === 'peck' || action === 'handsy') {
         if (!target || !target.connected || target.id === actor.id || !closeEnough(actor, target)) return;
+        const seatedTogether = actor.pose === 'sitting_chair' && target.pose === 'sitting_chair' && Math.hypot(actor.x - target.x, actor.z - target.z) <= 1.85;
+        if (seatedTogether && (action === 'handsy' || action === 'kiss' || action === 'peck')) { notifyAction(target, action); return; }
         const requestedAction = action === 'offer_hand' ? 'hold_hands' : action;
         const id = randomUUID();
         const request: PendingSocialRequest = { id, roomId, fromId: actor.id, toId: target.id, action: requestedAction, createdAt: Date.now() };
         pendingSocialRequests.set(id, request);
-        if (target.socketId) io.to(target.socketId).emit('social:request', {
-          requestId: id, fromId: actor.id, fromName: actor.displayName, action: requestedAction,
-        });
+        if (target.socketId) io.to(target.socketId).emit('social:request', { requestId: id, fromId: actor.id, fromName: actor.displayName, action: requestedAction });
         return;
       }
       if (action === 'share_popcorn' || action === 'slap' || action === 'throw_popcorn' || action === 'throw_tomato' || action === 'steal_popcorn') {
         if (action !== 'throw_popcorn' && action !== 'throw_tomato' && (!target || !target.connected || target.id === actor.id || !closeEnough(actor, target))) return;
+        const seatedTogether = Boolean(target && actor.pose === 'sitting_chair' && target.pose === 'sitting_chair' && Math.hypot(actor.x - target.x, actor.z - target.z) <= 1.85);
+        if (target && !seatedTogether && (action === 'slap' || action === 'steal_popcorn')) {
+          if (actor.socketId) io.to(actor.socketId).emit('social:response', { accepted: false, message: 'Essa interação está disponível quando vocês estão sentados lado a lado.' });
+          return;
+        }
         notifyAction(target, action);
       }
     });
