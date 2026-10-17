@@ -71,7 +71,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     socket.on('participant:left', ({ participantId }: { participantId: string }) => setParticipants((current) => current.filter((p) => p.id !== participantId)));
     socket.on('avatar:moved', (person: Participant) => {
       setParticipants((current) => current.map((p) => p.id === person.id ? person : p));
-      if (person.id === selfId) {
+      if (person.id === selfIdRef.current) {
         setPose(person.pose ?? 'standing');
         const nextPosition = { x: person.x, z: person.z, rotation: person.rotation }; positionRef.current = nextPosition; setPosition(nextPosition);
       }
@@ -229,7 +229,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
       <div className={'connection-state ' + (connection === 'Conectado' ? 'is-connected' : '')}><span />{connection}</div></header>
     {error && <p className="inline-error" role="status">{error}</p>}
     <div className="experience-layout"><section className="cinema-stage"><div className="stage-label"><span>WENCINE / SALA 3D</span><span>{participants.filter((p) => p.connected).length} participante(s)</span></div>
-      <div className="canvas-wrap"><CinemaCanvas participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} nearbySeat={nearestSeatDistance <= 1.3 && pose === 'standing' ? nearestSeat : null} onSitChair={() => sitInChair(nearestSeat)} onSelectParticipant={(id) => setSelectedParticipantId(id)} /></div>
+      <div className="canvas-wrap"><CinemaCanvas participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} nearbySeat={nearestSeatDistance <= 1.3 && pose === 'standing' ? nearestSeat : null} onSitChair={(seat) => sitInChair(seat)} onSelectParticipant={(id) => setSelectedParticipantId(id)} /></div>
       <div className="movement-help">WASD / setas: andar · Espaço: pular · E: interagir · Shift: correr · Ctrl: agachar · Ctrl duas vezes: deitar</div>
       <div className="mobile-controls" aria-label="Controles de movimentação">
         <div className="mobile-joystick-zone"><div className="mobile-joystick" ref={joystickRef} onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); updateJoystick(event); }} onPointerMove={(event) => { if (event.buttons) updateJoystick(event); }} onPointerUp={() => setMobileVector({ x: 0, z: 0 })} onPointerCancel={() => setMobileVector({ x: 0, z: 0 })} onLostPointerCapture={() => setMobileVector({ x: 0, z: 0 })} role="application" aria-label="Joystick virtual: arraste para andar"><span className="mobile-joystick-knob" style={{ transform: `translate(${mobileVector.x * 35}px, ${mobileVector.z * 35}px)` }} /></div><span className="joystick-caption">MOVER</span></div>

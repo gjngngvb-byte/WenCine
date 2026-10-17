@@ -52,7 +52,7 @@ function Avatar({ person, local = false, socialEffects, allPeople, onSelectParti
     const fallen = person.pose === 'fallen';
     const lyingBack = person.pose === 'lying_back';
     const crouching = person.pose === 'crouching';
-    const targetY = person.pose === 'sitting_chair' ? 0.14 : person.pose === 'sitting' ? -0.22 : fallen || lyingBack ? -0.08 : 0;
+    const targetY = person.pose === 'sitting_chair' ? 0.05 : person.pose === 'sitting' ? -0.22 : fallen || lyingBack ? -0.08 : 0;
     const jumpLift = activeEffect?.action === 'jump' && age < 1 ? Math.sin(Math.min(1, age) * Math.PI) * 1.05 : 0;
     if (person.pose === 'sitting_chair') {
       // Sentar é um encaixe exato, não uma aproximação animada a partir do ponto do clique.
@@ -87,8 +87,8 @@ function Avatar({ person, local = false, socialEffects, allPeople, onSelectParti
     <mesh position={[0, 0.33, 0]} castShadow><sphereGeometry args={[0.2, 16, 12]} /><meshStandardMaterial color={bodyColor} roughness={0.7} /></mesh>
     <group ref={leftArm} position={[-0.25, 0.67, 0]}><mesh position={[0, -0.18, 0]} rotation={[0, 0, -0.12]} castShadow><capsuleGeometry args={[0.075, 0.28, 4, 8]} /><meshStandardMaterial color={bodyColor} /></mesh><mesh position={[0, -0.34, 0.015]}><sphereGeometry args={[0.075, 10, 8]} /><meshStandardMaterial color="#f1d3c3" /></mesh></group>
     <group ref={rightArm} position={[0.25, 0.67, 0]}><mesh position={[0, -0.18, 0]} rotation={[0, 0, 0.12]} castShadow><capsuleGeometry args={[0.075, 0.28, 4, 8]} /><meshStandardMaterial color={bodyColor} /></mesh><mesh position={[0, -0.34, 0.015]}><sphereGeometry args={[0.075, 10, 8]} /><meshStandardMaterial color="#f1d3c3" /></mesh></group>
-    <group ref={leftLeg} position={[-0.12, 0.27, 0]}>{person.pose === 'sitting_chair' ? <><mesh position={[0, -0.025, 0.12]} rotation={[Math.PI / 2, 0, 0]} castShadow><capsuleGeometry args={[0.09, 0.22, 4, 8]} /><meshStandardMaterial color={bodyColor} /></mesh><group position={[0, -0.04, 0.25]}><mesh position={[0, -0.17, 0]} castShadow><capsuleGeometry args={[0.075, 0.2, 4, 8]} /><meshStandardMaterial color={bodyColor} /></mesh><mesh position={[0, -0.3, 0.045]}><boxGeometry args={[0.16, 0.09, 0.24]} /><meshStandardMaterial color="#211c30" /></mesh></group></> : <><mesh position={[0, -0.15, 0]} castShadow><capsuleGeometry args={[0.09, 0.23, 4, 8]} /><meshStandardMaterial color={bodyColor} /></mesh><mesh position={[0, -0.29, 0.06]}><boxGeometry args={[0.16, 0.09, 0.24]} /><meshStandardMaterial color="#211c30" /></mesh></>}</group>
-    <group ref={rightLeg} position={[0.12, 0.27, 0]}>{person.pose === 'sitting_chair' ? <><mesh position={[0, -0.025, 0.12]} rotation={[Math.PI / 2, 0, 0]} castShadow><capsuleGeometry args={[0.09, 0.22, 4, 8]} /><meshStandardMaterial color={bodyColor} /></mesh><group position={[0, -0.04, 0.25]}><mesh position={[0, -0.17, 0]} castShadow><capsuleGeometry args={[0.075, 0.2, 4, 8]} /><meshStandardMaterial color={bodyColor} /></mesh><mesh position={[0, -0.3, 0.045]}><boxGeometry args={[0.16, 0.09, 0.24]} /><meshStandardMaterial color="#211c30" /></mesh></group></> : <><mesh position={[0, -0.15, 0]} castShadow><capsuleGeometry args={[0.09, 0.23, 4, 8]} /><meshStandardMaterial color={bodyColor} /></mesh><mesh position={[0, -0.29, 0.06]}><boxGeometry args={[0.16, 0.09, 0.24]} /><meshStandardMaterial color="#211c30" /></mesh></>}</group>
+    <group ref={leftLeg} position={[-0.12, person.pose === 'sitting_chair' ? 0.36 : 0.27, 0]}>{person.pose === 'sitting_chair' ? <><mesh position={[0, -0.025, 0.12]} rotation={[Math.PI / 2, 0, 0]} castShadow><capsuleGeometry args={[0.09, 0.22, 4, 8]} /><meshStandardMaterial color={bodyColor} /></mesh><group position={[0, -0.04, 0.25]}><mesh position={[0, -0.17, 0]} castShadow><capsuleGeometry args={[0.075, 0.2, 4, 8]} /><meshStandardMaterial color={bodyColor} /></mesh><mesh position={[0, -0.3, 0.045]}><boxGeometry args={[0.16, 0.09, 0.24]} /><meshStandardMaterial color="#211c30" /></mesh></group></> : <><mesh position={[0, -0.15, 0]} castShadow><capsuleGeometry args={[0.09, 0.23, 4, 8]} /><meshStandardMaterial color={bodyColor} /></mesh><mesh position={[0, -0.29, 0.06]}><boxGeometry args={[0.16, 0.09, 0.24]} /><meshStandardMaterial color="#211c30" /></mesh></>}</group>
+    <group ref={rightLeg} position={[0.12, person.pose === 'sitting_chair' ? 0.36 : 0.27, 0]}>{person.pose === 'sitting_chair' ? <><mesh position={[0, -0.025, 0.12]} rotation={[Math.PI / 2, 0, 0]} castShadow><capsuleGeometry args={[0.09, 0.22, 4, 8]} /><meshStandardMaterial color={bodyColor} /></mesh><group position={[0, -0.04, 0.25]}><mesh position={[0, -0.17, 0]} castShadow><capsuleGeometry args={[0.075, 0.2, 4, 8]} /><meshStandardMaterial color={bodyColor} /></mesh><mesh position={[0, -0.3, 0.045]}><boxGeometry args={[0.16, 0.09, 0.24]} /><meshStandardMaterial color="#211c30" /></mesh></group></> : <><mesh position={[0, -0.15, 0]} castShadow><capsuleGeometry args={[0.09, 0.23, 4, 8]} /><meshStandardMaterial color={bodyColor} /></mesh><mesh position={[0, -0.29, 0.06]}><boxGeometry args={[0.16, 0.09, 0.24]} /><meshStandardMaterial color="#211c30" /></mesh></>}</group>
     <mesh position={[0, 0.99, 0]} castShadow><sphereGeometry args={[0.25, 24, 20]} /><meshStandardMaterial color="#f1d3c3" roughness={0.82} /></mesh>
     {(person.pose === 'sitting' || person.pose === 'sitting_chair') && <group position={[0, 0.54, 0.22]}>
       <mesh castShadow><cylinderGeometry args={[0.14, 0.1, 0.2, 12]} /><meshStandardMaterial color="#f472b6" roughness={0.65} /></mesh>
@@ -114,7 +114,7 @@ function Avatar({ person, local = false, socialEffects, allPeople, onSelectParti
 function CinemaScene({ participants, selfId, position, color, accessory, expression, pose, socialEffects, nearbySeat, onSitChair, onSelectParticipant }: {
   participants: Participant[]; selfId: string; position: { x: number; z: number; rotation: number };
   color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; socialEffects: SocialEffect[];
-  nearbySeat: { x: number; z: number } | null; onSitChair: (() => void) | undefined; onSelectParticipant?: ((participantId: string) => void) | undefined;
+  nearbySeat: { x: number; z: number } | null; onSitChair: ((seat: { x: number; z: number }) => void) | undefined; onSelectParticipant?: ((participantId: string) => void) | undefined;
 }) {
   const localPerson: Participant = { id: selfId || 'local', displayName: 'Você', color, accessory, expression, ...position, connected: true, pose };
   return <>
@@ -128,7 +128,7 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
     <mesh position={[0, 0.08, -9.8]}><boxGeometry args={[12, 0.16, 0.65]} /><meshStandardMaterial color="#a78bfa" emissive="#7c3aed" emissiveIntensity={0.6} /></mesh>
     {Array.from({ length: 5 }, (_, row) => Array.from({ length: 8 }, (_, col) => <Seat key={row + '-' + col} position={[(col - 3.5) * 1.25, 0, 1 + row * 1.65]} />))}
     {nearbySeat && onSitChair && <Html position={[nearbySeat.x, 1.45, nearbySeat.z]} center distanceFactor={8}>
-      <button type="button" className="world-chair-button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onSitChair(); }}>🪑 Sentar</button>
+      <button type="button" className="world-chair-button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onSitChair(nearbySeat); }}>🪑 Sentar</button>
     </Html>}
     <mesh position={[-9.7, 2.6, 0]}><boxGeometry args={[0.3, 5.2, 21]} /><meshStandardMaterial color="#31263f" /></mesh>
     <mesh position={[9.7, 2.6, 0]}><boxGeometry args={[0.3, 5.2, 21]} /><meshStandardMaterial color="#31263f" /></mesh>
@@ -162,7 +162,7 @@ function ThrownSnack({ effect, x, z }: { effect: SocialEffect; x: number; z: num
 export function CinemaCanvas({ participants, selfId, position, color, accessory, expression, pose, socialEffects, nearbySeat, onSitChair, onSelectParticipant }: {
   participants: Participant[]; selfId: string; position: { x: number; z: number; rotation: number };
   color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; socialEffects: SocialEffect[];
-  nearbySeat: { x: number; z: number } | null; onSitChair: (() => void) | undefined; onSelectParticipant?: ((participantId: string) => void) | undefined;
+  nearbySeat: { x: number; z: number } | null; onSitChair: ((seat: { x: number; z: number }) => void) | undefined; onSelectParticipant?: ((participantId: string) => void) | undefined;
 }) {
   return <Canvas camera={{ position: [0, 5.5, 10], fov: 54 }} dpr={[1, 1.35]} shadows fallback={<p>Este dispositivo não consegue renderizar a cena 3D.</p>}>
     <CinemaScene participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} nearbySeat={nearbySeat} onSitChair={onSitChair} onSelectParticipant={onSelectParticipant} />
