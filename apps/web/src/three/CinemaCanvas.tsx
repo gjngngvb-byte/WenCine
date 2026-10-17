@@ -114,7 +114,7 @@ function Avatar({ person, local = false, socialEffects, allPeople, onSelectParti
 function CinemaScene({ participants, selfId, position, color, accessory, expression, pose, socialEffects, nearbySeat, onSitChair, onSelectParticipant }: {
   participants: Participant[]; selfId: string; position: { x: number; z: number; rotation: number };
   color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; socialEffects: SocialEffect[];
-  nearbySeat: { x: number; z: number } | null; onSitChair: (() => void) | undefined; onSelectParticipant?: ((participantId: string) => void) | undefined;
+  nearbySeat: { x: number; z: number } | null; onSitChair: ((seat: { x: number; z: number }) => void) | undefined; onSelectParticipant?: ((participantId: string) => void) | undefined;
 }) {
   const localPerson: Participant = { id: selfId || 'local', displayName: 'Você', color, accessory, expression, ...position, connected: true, pose };
   return <>
@@ -128,7 +128,7 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
     <mesh position={[0, 0.08, -9.8]}><boxGeometry args={[12, 0.16, 0.65]} /><meshStandardMaterial color="#a78bfa" emissive="#7c3aed" emissiveIntensity={0.6} /></mesh>
     {Array.from({ length: 5 }, (_, row) => Array.from({ length: 8 }, (_, col) => <Seat key={row + '-' + col} position={[(col - 3.5) * 1.25, 0, 1 + row * 1.65]} />))}
     {nearbySeat && onSitChair && <Html position={[nearbySeat.x, 1.45, nearbySeat.z]} center distanceFactor={8}>
-      <button type="button" className="world-chair-button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onSitChair(); }}>🪑 Sentar</button>
+      <button type="button" className="world-chair-button" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onSitChair(nearbySeat); }}>🪑 Sentar</button>
     </Html>}
     <mesh position={[-9.7, 2.6, 0]}><boxGeometry args={[0.3, 5.2, 21]} /><meshStandardMaterial color="#31263f" /></mesh>
     <mesh position={[9.7, 2.6, 0]}><boxGeometry args={[0.3, 5.2, 21]} /><meshStandardMaterial color="#31263f" /></mesh>
@@ -162,7 +162,7 @@ function ThrownSnack({ effect, x, z }: { effect: SocialEffect; x: number; z: num
 export function CinemaCanvas({ participants, selfId, position, color, accessory, expression, pose, socialEffects, nearbySeat, onSitChair, onSelectParticipant }: {
   participants: Participant[]; selfId: string; position: { x: number; z: number; rotation: number };
   color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; socialEffects: SocialEffect[];
-  nearbySeat: { x: number; z: number } | null; onSitChair: (() => void) | undefined; onSelectParticipant?: ((participantId: string) => void) | undefined;
+  nearbySeat: { x: number; z: number } | null; onSitChair: ((seat: { x: number; z: number }) => void) | undefined; onSelectParticipant?: ((participantId: string) => void) | undefined;
 }) {
   return <Canvas camera={{ position: [0, 5.5, 10], fov: 54 }} dpr={[1, 1.35]} shadows fallback={<p>Este dispositivo não consegue renderizar a cena 3D.</p>}>
     <CinemaScene participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} nearbySeat={nearbySeat} onSitChair={onSitChair} onSelectParticipant={onSelectParticipant} />
