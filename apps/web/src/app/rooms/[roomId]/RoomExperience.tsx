@@ -220,7 +220,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     .sort((a, b) => a.distance - b.distance)[0]?.person;
   const isHoldingHands = participants.some((person) => person.id === selfId && person.holdingHandsWith);
   const seats = Array.from({ length: 5 }, (_, row) => Array.from({ length: 8 }, (_, col) => ({ x: (col - 3.5) * 1.25, z: 1 + row * 1.65 }))).flat();
-  const availableSeats = seats.filter((seat) => !participants.some((person) => person.id !== selfId && person.connected && person.pose === 'sitting_chair' && Math.hypot(person.x - seat.x, person.z - seat.z) < 0.7));
+  const availableSeats = seats.filter((seat) => !participants.some((person) => person.id !== selfId && person.connected && Math.hypot(person.x - seat.x, person.z - seat.z) < 0.7));
   const nearestSeat = (availableSeats.length ? availableSeats : seats).map((seat) => ({ ...seat, distance: Math.hypot(position.x - seat.x, position.z - seat.z) })).sort((a, b) => a.distance - b.distance)[0]!;
   const nearestSeatDistance = nearestSeat.distance;
   const seatedNeighbor = pose === 'sitting_chair' && nearbyParticipant?.pose === 'sitting_chair' &&
