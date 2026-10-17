@@ -242,8 +242,8 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     const offsetX = current.x - seat.x;
     const offsetZ = current.z - seat.z;
     const approach = Math.abs(offsetX) > Math.abs(offsetZ)
-      ? { x: seat.x + Math.sign(offsetX || 1) * 0.54, z: current.z }
-      : { x: current.x, z: seat.z + Math.sign(offsetZ || -1) * 0.54 };
+      ? { x: seat.x + Math.sign(offsetX || 1) * 0.68, z: current.z }
+      : { x: current.x, z: seat.z + Math.sign(offsetZ || -1) * 0.68 };
     pendingSeatRef.current = { ...seat, approachX: approach.x, approachZ: approach.z };
     heldKeys.current.clear();
   }
