@@ -41,7 +41,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   const [filmSummary, setFilmSummary] = useState<{ count: number; average: number } | null>(null);
   const lastMoveRef = useRef(0);
   const lastBumpRef = useRef(0);
-  const pendingSeatRef = useRef<{ x: number; z: number; approachX: number; approachZ: number } | null>(null);
+  const pendingSeatRef = useRef<{ x: number; z: number; approachX: number; approachZ: number; returnX: number; returnZ: number; returnRotation: number } | null>(null);
   const heldKeys = useRef(new Set<string>());
   const participantsRef = useRef<Participant[]>([]);
   participantsRef.current = participants;
