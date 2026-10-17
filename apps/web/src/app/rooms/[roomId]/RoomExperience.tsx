@@ -33,6 +33,11 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   const joystickRef = useRef<HTMLDivElement | null>(null);
   const [pose, setPose] = useState<'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'>('standing');
   const [cameraMode, setCameraMode] = useState<'third' | 'first'>('third');
+  const [cameraYaw, setCameraYaw] = useState(0);
+  const [cameraPitch, setCameraPitch] = useState(-0.12);
+  const cameraYawRef = useRef(0);
+  const cameraPitchRef = useRef(-0.12);
+  const canvasWrapRef = useRef<HTMLDivElement | null>(null);
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null);
   const [pendingRequest, setPendingRequest] = useState<{ requestId: string; fromId: string; fromName: string; action: string } | null>(null);
   const [socialStatus, setSocialStatus] = useState('');
@@ -134,7 +139,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
         event.preventDefault(); heldKeys.current.add(key); return;
       }
       if (event.repeat) return;
-      if (key === 'v') { event.preventDefault(); setCameraMode((current) => current === 'third' ? 'first' : 'third'); return; }
+      if (key === 'tab') { event.preventDefault(); setCameraMode((current) => { const next = current === 'third' ? 'first' : 'third'; if (next === 'first') { const yaw = Math.PI - positionRef.current.rotation; cameraYawRef.current = yaw; setCameraYaw(yaw); } return next; }); return; }
       const context = gameplayRef.current;
       if (key === ' ') { event.preventDefault(); if (['fallen', 'lying_back', 'sitting', 'sitting_chair', 'crouching'].includes(context.pose)) { standUp(); } else if (context.pose === 'standing') socialAction('jump'); }
       if (key === 'control') {
@@ -185,13 +190,48 @@ export function RoomExperience({ roomId }: { roomId: string }) {
         }
       } else {
         const currentPose = gameplayRef.current.pose;
-        if ((currentPose === 'standing' || currentPose === 'crouching') && (dx || dz)) { const length = Math.hypot(dx, dz) || 1; const speed = keys.has('shift') ? 4.2 : currentPose === 'crouching' ? 1.5 : 2.8; move(dx / length * speed * elapsed, dz / length * speed * elapsed); }
+        if ((currentPose === 'standing' || currentPose === 'crouching') && (dx || dz)) {
+          const length = Math.hypot(dx, dz) || 1;
+          const speed = keys.has('shift') ? 4.2 : currentPose === 'crouching' ? 1.5 : 2.8;
+          const yaw = cameraYawRef.current;
+          // WASD é relativo à câmera: D faz strafe para a direita sem girar a câmera atrás do avatar.
+          const forward = -dz / length;
+          const strafe = dx / length;
+          const worldX = Math.sin(yaw) * forward + Math.cos(yaw) * strafe;
+          const worldZ = -Math.cos(yaw) * forward + Math.sin(yaw) * strafe;
+          move(worldX * speed * elapsed, worldZ * speed * elapsed);
+        }
       }
       frame = window.requestAnimationFrame(tick);
     };
     frame = window.requestAnimationFrame(tick);
     return () => { window.cancelAnimationFrame(frame); window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp); window.removeEventListener('blur', clearKeys); };
   }, [move]);
+  useEffect(() => {
+    const onMouseMove = (event: MouseEvent) => {
+      const canvas = canvasWrapRef.current?.querySelector('canvas');
+      if (!canvas || document.pointerLockElement !== canvas) return;
+      const nextYaw = cameraYawRef.current - event.movementX * 0.0024;
+      const nextPitch = Math.max(-0.58, Math.min(0.42, cameraPitchRef.current - event.movementY * 0.0018));
+      cameraYawRef.current = nextYaw;
+      cameraPitchRef.current = nextPitch;
+      setCameraYaw(nextYaw);
+      setCameraPitch(nextPitch);
+      if (cameraMode === 'first') {
+        const current = positionRef.current;
+        const next = { ...current, rotation: Math.PI - nextYaw };
+        positionRef.current = next;
+        setPosition(next);
+        const now = Date.now();
+        if (now - lastMoveRef.current > 45) {
+          lastMoveRef.current = now;
+          socketRef.current?.emit('avatar:move', { ...next, color, accessory, expression });
+        }
+      }
+    };
+    document.addEventListener('mousemove', onMouseMove);
+    return () => document.removeEventListener('mousemove', onMouseMove);
+  }, [cameraMode, color, accessory, expression]);
   const updateJoystick = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     const element = joystickRef.current;
     if (!element) return;
@@ -289,8 +329,8 @@ export function RoomExperience({ roomId }: { roomId: string }) {
       <div className={'connection-state ' + (connection === 'Conectado' ? 'is-connected' : '')}><span />{connection}</div></header>
     {error && <p className="inline-error" role="status">{error}</p>}
     <div className="experience-layout"><section className="cinema-stage"><div className="stage-label"><span>WENCINE / SALA 3D</span><span>{participants.filter((p) => p.connected).length} participante(s)</span></div>
-      <div className="camera-mode-hint" aria-live="polite">Câmera: {cameraMode === 'third' ? 'atrás do personagem' : 'primeira pessoa'} · pressione V para alternar</div>
-      <div className="canvas-wrap"><CinemaCanvas participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} nearbySeat={nearestSeatDistance <= 1.3 && pose === 'standing' ? nearestSeat : null} onSitChair={(seat) => sitInChair(seat)} onSelectParticipant={(id) => setSelectedParticipantId(id)} cameraMode={cameraMode} /></div>
+      <div className="camera-mode-hint" aria-live="polite">{cameraMode === 'third' ? 'Terceira pessoa' : 'Primeira pessoa'} · clique no cinema e mova o mouse para olhar · TAB troca câmera · Esc libera o mouse</div>
+      <div className="canvas-wrap" ref={canvasWrapRef} onPointerDown={(event) => { if (event.target instanceof HTMLCanvasElement && document.pointerLockElement !== event.target) void event.target.requestPointerLock(); }}><CinemaCanvas participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} nearbySeat={nearestSeatDistance <= 1.3 && pose === 'standing' ? nearestSeat : null} onSitChair={(seat) => sitInChair(seat)} onSelectParticipant={(id) => setSelectedParticipantId(id)} cameraMode={cameraMode} cameraYaw={cameraYaw} cameraPitch={cameraPitch} /></div>
       <div className="movement-help">WASD / setas: andar · Espaço: pular · E: interagir · Shift: correr · Ctrl: agachar · Ctrl duas vezes: deitar</div>
       <div className="mobile-controls" aria-label="Controles de movimentação">
         <div className="mobile-joystick-zone"><div className="mobile-joystick" ref={joystickRef} onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); updateJoystick(event); }} onPointerMove={(event) => { if (event.buttons) updateJoystick(event); }} onPointerUp={() => setMobileVector({ x: 0, z: 0 })} onPointerCancel={() => setMobileVector({ x: 0, z: 0 })} onLostPointerCapture={() => setMobileVector({ x: 0, z: 0 })} role="application" aria-label="Joystick virtual: arraste para andar"><span className="mobile-joystick-knob" style={{ transform: `translate(${mobileVector.x * 35}px, ${mobileVector.z * 35}px)` }} /></div><span className="joystick-caption">MOVER</span></div>
