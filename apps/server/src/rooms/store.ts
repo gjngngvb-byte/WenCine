@@ -60,9 +60,21 @@ export function joinRoom(input: { roomId: string; displayName: string; accessCod
   }
   const count = [...room.participants.values()].filter((person) => person.connected).length;
   if (count >= room.maxParticipants) return { error: 'ROOM_FULL' as const };
+  // O ponto inicial também respeita as colisões: não sorteie o avatar em cima de uma cadeira.
+  const seats = Array.from({ length: 5 }, (_, row) =>
+    Array.from({ length: 8 }, (_, col) => ({ x: (col - 3.5) * 1.25, z: 1 + row * 1.65 }))).flat();
+  const spawnCandidates: Array<{ x: number; z: number }> = [];
+  for (let x = -8; x <= 8; x += 0.5) {
+    for (let z = -0.75; z <= 8.75; z += 0.5) {
+      if (seats.some((seat) => Math.abs(x - seat.x) < 0.60 && Math.abs(z - seat.z) < 0.60)) continue;
+      if ([...room.participants.values()].some((person) => person.connected && Math.hypot(x - person.x, z - person.z) < 0.7)) continue;
+      spawnCandidates.push({ x, z });
+    }
+  }
+  const spawn = spawnCandidates[Math.floor(Math.random() * spawnCandidates.length)] ?? { x: -8, z: -0.75 };
   const participant: Participant = { id: randomUUID(), token: randomUUID(), displayName: input.displayName.trim().slice(0, 32),
     role: isOwner ? 'owner' : 'member', color: '#a78bfa', accessory: 'none', expression: 'neutral',
-    x: (Math.random() - 0.5) * 3, z: 2 + Math.random() * 2, rotation: 0, connected: true, joinedAt: Date.now(), pose: 'standing' };
+    x: spawn.x, z: spawn.z, rotation: 0, connected: true, joinedAt: Date.now(), pose: 'standing' };
   room.participants.set(participant.id, participant);
   return { room, participant, participantToken: participant.token, reconnected: false };
 }
@@ -76,8 +88,9 @@ export function updateParticipantPosition(roomId: string, participantId: string,
   const room = findRoom(roomId);
   const participant = room?.participants.get(participantId);
   if (!room || !participant) return undefined;
-  participant.x = Math.max(-8, Math.min(8, position.x));
-  participant.z = Math.max(-1, Math.min(9, position.z));
+  // Limites alinhados ao espaço navegável do cinema, inclusive o corredor até a tela.
+  participant.x = Math.max(-9.05, Math.min(9.05, position.x));
+  participant.z = Math.max(-9.35, Math.min(9.2, position.z));
   participant.rotation = position.rotation;
   return { room, participant };
 }

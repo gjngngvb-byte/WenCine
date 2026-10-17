@@ -65,6 +65,26 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
       const parsed = PositionSchema.safeParse(payload);
       if (!parsed.success) return;
       const { x, z, rotation, color, accessory, expression } = parsed.data;
+      const current = findParticipantByToken(roomId, token)?.participant;
+      if (!current) return;
+      const isMoving = Math.hypot(x - current.x, z - current.z) > 0.025;
+      if (isMoving) {
+        // O servidor é a autoridade final da colisão. O cliente não consegue empurrar
+        // um avatar através de uma cadeira nem mover o corpo enquanto está sentado.
+        const seats = Array.from({ length: 5 }, (_, row) =>
+          Array.from({ length: 8 }, (_, col) => ({ x: (col - 3.5) * 1.25, z: 1 + row * 1.65 }))).flat();
+        const intersectsChair = seats.some((seat) =>
+          Math.abs(x - seat.x) < 0.60 && Math.abs(z - seat.z) < 0.60);
+        const intersectsPerson = [...(findParticipantByToken(roomId, token)?.room.participants.values() ?? [])].some((person) =>
+          person.id !== participantId && person.id !== current.holdingHandsWith && person.connected && Math.hypot(x - person.x, z - person.z) < 0.62);
+        if (current.pose === 'sitting_chair' || intersectsChair || intersectsPerson) {
+          if (color) current.color = color;
+          if (accessory) current.accessory = accessory;
+          if (expression) current.expression = expression;
+          socket.emit('avatar:moved', safeParticipant(current));
+          return;
+        }
+      }
       const updated = updateParticipantPosition(roomId, participantId, { x, z, rotation });
       if (!updated) return;
       if (color) updated.participant.color = color;
@@ -112,39 +132,36 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
       if (action === 'lie_back') { actor.pose = 'lying_back'; notifyAction(undefined, action); return; }
       if (action === 'sit' || action === 'sit_floor' || action === 'sit_chair' || action === 'stand' || action === 'fall') {
         if (action === 'stand' && actor.pose === 'sitting_chair') {
-          // Move o avatar para fora do volume da cadeira. A folga considera a largura
-          // do corpo do avatar, não apenas as dimensões físicas do assento.
           const seats = Array.from({ length: 5 }, (_, row) =>
             Array.from({ length: 8 }, (_, col) => ({ x: (col - 3.5) * 1.25, z: 1 + row * 1.65 }))).flat();
-          // A posição do ator é o centro do assento. A primeira posição fica no corredor
-          // entre fileiras (0,825 m), na frente da cadeira, em vez de 1,3 m, que cai
-          // dentro da zona de bloqueio da fileira seguinte e fazia a ação ser rejeitada.
-          const candidates = [
-            { x: actor.x, z: actor.z - 0.825 },
-            { x: actor.x - 0.625, z: actor.z - 0.825 },
-            { x: actor.x + 0.625, z: actor.z - 0.825 },
-            { x: actor.x - 0.625, z: actor.z },
-            { x: actor.x + 0.625, z: actor.z },
-            { x: actor.x, z: actor.z + 0.825 },
-            { x: actor.x - 0.625, z: actor.z + 0.825 },
-            { x: actor.x + 0.625, z: actor.z + 0.825 },
-          ];
-          const safeSpot = candidates.find((spot) =>
-            spot.x >= -9.05 && spot.x <= 9.05 && spot.z >= -9.35 && spot.z <= 9.2 &&
-            // Circular clearance includes the avatar's body and chair footprint.
-            !seats.some((seat) => Math.hypot(spot.x - seat.x, spot.z - seat.z) < 0.68) &&
-            ![...found.room.participants.values()].some((person) =>
-              person.id !== actor.id && person.connected && Math.hypot(spot.x - person.x, spot.z - person.z) < 0.68));
-          if (safeSpot) {
-            updateParticipantPosition(roomId, actor.id, {
-              x: safeSpot.x,
-              z: safeSpot.z,
-              rotation: Math.PI,
-            });
-          } else {
-            socket.emit('social:response', { accepted: false, message: 'Não há espaço livre para levantar. Tente novamente.' });
+          // Tenta primeiro sair pela frente da cadeira. Se o corredor estiver ocupado,
+          // procura o ponto livre mais próximo em toda a sala, sem atravessar assentos
+          // nem outros avatares.
+          const preferred = { x: actor.x, z: actor.z - 0.95 };
+          const candidates = [preferred];
+          for (let x = -8.75; x <= 8.75; x += 0.25) {
+            for (let z = -9; z <= 9; z += 0.25) {
+              candidates.push({ x: Number(x.toFixed(2)), z: Number(z.toFixed(2)) });
+            }
+          }
+          const otherPeople = [...found.room.participants.values()].filter((person) =>
+            person.id !== actor.id && person.connected);
+          const safeSpot = candidates
+            .filter((spot) =>
+              spot.x >= -9.05 && spot.x <= 9.05 && spot.z >= -9.35 && spot.z <= 9.2 &&
+              !seats.some((seat) => Math.abs(spot.x - seat.x) < 0.60 && Math.abs(spot.z - seat.z) < 0.60) &&
+              !otherPeople.some((person) => Math.hypot(spot.x - person.x, spot.z - person.z) < 0.62))
+            .sort((a, b) => Math.hypot(a.x - preferred.x, a.z - preferred.z) -
+              Math.hypot(b.x - preferred.x, b.z - preferred.z))[0];
+          if (!safeSpot) {
+            socket.emit('social:response', { accepted: false, message: 'A sala está lotada ao redor da cadeira. Afaste alguém ou tente novamente.' });
             return;
           }
+          updateParticipantPosition(roomId, actor.id, {
+            x: safeSpot.x,
+            z: safeSpot.z,
+            rotation: Math.PI,
+          });
         }
         if (action === 'sit_chair') {
           const seats = Array.from({ length: 5 }, (_, row) =>
@@ -232,7 +249,7 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
       }
     });
     socket.on('bot:control', (payload: unknown) => {
-      const commandSchema = z.object({ command: z.enum(['spawn', 'remove', 'stand', 'sit_chair', 'sit_floor', 'walk']), x: z.number().finite().min(-8).max(8).optional(), z: z.number().finite().min(-1).max(9).optional() });
+      const commandSchema = z.object({ command: z.enum(['spawn', 'remove', 'stand', 'sit_chair', 'sit_floor', 'walk']), x: z.number().finite().min(-9.05).max(9.05).optional(), z: z.number().finite().min(-9.35).max(9.2).optional() });
       const parsedCommand = commandSchema.safeParse(payload);
       const owner = findParticipantByToken(roomId, token)?.participant;
       if (!parsedCommand.success || owner?.role !== 'owner') return;

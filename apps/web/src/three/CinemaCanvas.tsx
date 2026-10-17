@@ -28,6 +28,7 @@ function Avatar({ person, local = false, socialEffects, allPeople, onSelectParti
   const rightLeg = useRef<THREE.Group>(null);
   const bodyColor = useMemo(() => new THREE.Color(person.color || '#a78bfa'), [person.color]);
   const lastPosition = useRef({ x: person.x, z: person.z });
+  const previousPose = useRef(person.pose);
   const gait = useRef(0);
   useFrame((_, delta) => {
     if (!group.current) return;
@@ -58,7 +59,15 @@ function Avatar({ person, local = false, socialEffects, allPeople, onSelectParti
     const jumpLift = activeEffect?.action === 'jump' && age < 1 ? Math.sin(Math.min(1, age) * Math.PI) * 1.05 : 0;
     // Aproximação suave tanto ao sentar quanto ao levantar. A posição de rede continua autoritativa,
     // mas o modelo visual percorre o trajeto em vez de teletransportar.
-    group.current.position.lerp(new THREE.Vector3(targetX, targetY + jumpLift, targetZ), Math.min(1, delta * (isContactAnimation ? 7 : person.pose === 'sitting_chair' ? 4.5 : 8)));
+    const leavingChair = previousPose.current === 'sitting_chair' && person.pose !== 'sitting_chair';
+    previousPose.current = person.pose;
+    if (leavingChair) {
+      // Não anime o corpo em pé atravessando o encosto/assento. A posição segura vem
+      // confirmada pelo servidor e é aplicada no mesmo quadro da troca de pose.
+      group.current.position.set(targetX, targetY + jumpLift, targetZ);
+    } else {
+      group.current.position.lerp(new THREE.Vector3(targetX, targetY + jumpLift, targetZ), Math.min(1, delta * (isContactAnimation ? 7 : person.pose === 'sitting_chair' ? 4.5 : 8)));
+    }
     const targetRotation = person.pose === 'sitting_chair' ? Math.PI : partner ? Math.atan2(contactDx, contactDz) : person.rotation;
     group.current.rotation.y = THREE.MathUtils.damp(group.current.rotation.y, targetRotation, delta, isContactAnimation ? 7 : 7);
     group.current.rotation.z = THREE.MathUtils.damp(group.current.rotation.z, fallen ? -1.12 : 0, delta, 7);
