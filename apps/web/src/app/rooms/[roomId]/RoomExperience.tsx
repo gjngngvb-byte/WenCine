@@ -126,7 +126,6 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   }, [color, accessory, expression]);
   useEffect(() => {
     let lastCtrlTap = 0;
-    let seatedActionIndex = 0;
     function onKeyDown(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null;
       if (target?.matches('input, textarea, select')) return;
