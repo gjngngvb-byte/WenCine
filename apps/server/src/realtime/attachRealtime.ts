@@ -96,9 +96,19 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
         const partner = updated.room.participants.get(heldId);
         if (partner?.connected && partner.id !== participantId) {
           const side = participantId.localeCompare(partner.id) < 0 ? 1 : -1;
-          const dragged = updateParticipantPosition(roomId, partner.id, {
-            x: updated.participant.x + side * 0.62,
-            z: updated.participant.z + 0.08,
+          const dragX = updated.participant.x + side * 0.62;
+          const dragZ = updated.participant.z + 0.08;
+          const seats = Array.from({ length: 5 }, (_, row) =>
+            Array.from({ length: 8 }, (_, col) => ({ x: (col - 3.5) * 1.25, z: 1 + row * 1.65 }))).flat();
+          const blockedByChair = seats.some((seat) =>
+            Math.abs(dragX - seat.x) < 0.60 && Math.abs(dragZ - seat.z) < 0.60);
+          const blockedByPerson = [...updated.room.participants.values()].some((person) =>
+            person.id !== partner.id && person.id !== updated.participant.id && person.connected &&
+            Math.hypot(dragX - person.x, dragZ - person.z) < 0.62);
+          // O arrasto não pode colocar o parceiro dentro de uma cadeira ou de terceiros.
+          const dragged = blockedByChair || blockedByPerson ? undefined : updateParticipantPosition(roomId, partner.id, {
+            x: dragX,
+            z: dragZ,
             rotation: updated.participant.rotation,
           });
           if (dragged) {
@@ -167,7 +177,7 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
           const seats = Array.from({ length: 5 }, (_, row) =>
             Array.from({ length: 8 }, (_, col) => ({ x: (col - 3.5) * 1.25, z: 1 + row * 1.65 }))).flat();
           const availableSeats = seats.filter((seat) => ![...found.room.participants.values()].some((person) =>
-            person.id !== actor.id && person.pose === 'sitting_chair' && Math.hypot(person.x - seat.x, person.z - seat.z) < 0.7));
+            person.id !== actor.id && person.connected && Math.hypot(person.x - seat.x, person.z - seat.z) < 0.7));
           const hasExplicitSeat = seatX !== undefined && seatZ !== undefined;
           const requestedSeat = hasExplicitSeat
             ? seats.find((seat) => Math.abs(seat.x - seatX) < 0.001 && Math.abs(seat.z - seatZ) < 0.001)
@@ -264,13 +274,48 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
       }
       if (!bot) return;
       if (command.command === 'remove') { room.participants.delete(bot.id); io.to(roomId).emit('participant:left', { participantId: bot.id }); return; }
-      if (command.command === 'walk') { const x = command.x ?? bot.x, z = command.z ?? bot.z; bot.rotation = Math.atan2(x - bot.x, z - bot.z); bot.x = x; bot.z = z; bot.pose = 'standing'; }
+      if (command.command === 'walk') {
+        const x = command.x ?? bot.x, z = command.z ?? bot.z;
+        const seats = Array.from({ length: 5 }, (_, row) =>
+          Array.from({ length: 8 }, (_, col) => ({ x: (col - 3.5) * 1.25, z: 1 + row * 1.65 }))).flat();
+        const blockedByChair = seats.some((seat) => Math.abs(x - seat.x) < 0.60 && Math.abs(z - seat.z) < 0.60);
+        const blockedByPerson = [...room.participants.values()].some((person) =>
+          person.id !== bot!.id && person.connected && Math.hypot(x - person.x, z - person.z) < 0.62);
+        if (blockedByChair || blockedByPerson) {
+          socket.emit('social:response', { accepted: false, message: 'O caminho do bot está bloqueado por um objeto ou jogador.' });
+          return;
+        }
+        bot.rotation = Math.atan2(x - bot.x, z - bot.z); bot.x = x; bot.z = z; bot.pose = 'standing';
+      }
       else if (command.command === 'sit_chair') {
         const seats = Array.from({ length: 5 }, (_, row) => Array.from({ length: 8 }, (_, col) => ({ x: (col - 3.5) * 1.25, z: 1 + row * 1.65 }))).flat();
         const seat = seats.sort((a, b) => Math.hypot(a.x - bot!.x, a.z - bot!.z) - Math.hypot(b.x - bot!.x, b.z - bot!.z))[0]!;
         bot.x = seat.x; bot.z = seat.z; bot.rotation = Math.PI; bot.pose = 'sitting_chair';
       } else if (command.command === 'sit_floor') bot.pose = 'sitting';
-      else bot.pose = 'standing';
+      else {
+        if (bot.pose === 'sitting_chair') {
+          const seats = Array.from({ length: 5 }, (_, row) =>
+            Array.from({ length: 8 }, (_, col) => ({ x: (col - 3.5) * 1.25, z: 1 + row * 1.65 }))).flat();
+          const preferred = { x: bot.x, z: bot.z - 0.95 };
+          let safeSpot: { x: number; z: number } | undefined;
+          let bestDistance = Infinity;
+          for (let x = -8.75; x <= 8.75; x += 0.25) {
+            for (let z = -9; z <= 9; z += 0.25) {
+              if (seats.some((seat) => Math.abs(x - seat.x) < 0.60 && Math.abs(z - seat.z) < 0.60)) continue;
+              if ([...room.participants.values()].some((person) =>
+                person.id !== bot!.id && person.connected && Math.hypot(x - person.x, z - person.z) < 0.62)) continue;
+              const distance = Math.hypot(x - preferred.x, z - preferred.z);
+              if (distance < bestDistance) { bestDistance = distance; safeSpot = { x, z }; }
+            }
+          }
+          if (!safeSpot) {
+            socket.emit('social:response', { accepted: false, message: 'Não há espaço livre para o bot levantar.' });
+            return;
+          }
+          bot.x = safeSpot.x; bot.z = safeSpot.z; bot.rotation = Math.PI;
+        }
+        bot.pose = 'standing';
+      }
       io.to(roomId).emit('avatar:moved', safeParticipant(bot));
     });
     socket.on('chat:send', (payload: unknown) => {
