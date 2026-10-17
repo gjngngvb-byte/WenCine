@@ -136,7 +136,9 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
       camera.position.set(position.x + directionX * 0.04, 1.45, position.z + directionZ * 0.04);
       camera.lookAt(position.x + directionX * 4, 1.45, position.z + directionZ * 4);
     } else {
-      camera.position.set(position.x + directionX * 3.25, 1.9, position.z + directionZ * 3.25);
+      // Mantém a câmera dentro do cinema mesmo quando o avatar chega à tela ou às paredes.
+      camera.position.set(THREE.MathUtils.clamp(position.x + directionX * 3.25, -9.2, 9.2), 1.9,
+        THREE.MathUtils.clamp(position.z + directionZ * 3.25, -9.6, 9.2));
       camera.lookAt(position.x, 1.0, position.z);
     }
   });
