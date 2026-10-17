@@ -211,7 +211,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     const onMouseMove = (event: MouseEvent) => {
       const canvas = canvasWrapRef.current?.querySelector('canvas');
       if (!canvas || document.pointerLockElement !== canvas) return;
-      const nextYaw = cameraYawRef.current - event.movementX * 0.0024;
+      const nextYaw = cameraYawRef.current + event.movementX * 0.0024;
       const nextPitch = Math.max(-0.58, Math.min(0.42, cameraPitchRef.current - event.movementY * 0.0018));
       cameraYawRef.current = nextYaw;
       cameraPitchRef.current = nextPitch;
