@@ -107,7 +107,8 @@ export function RoomExperience({ roomId }: { roomId: string }) {
       Array.from({ length: 8 }, (_, col) => ({ x: (col - 3.5) * 1.25, z: 1 + row * 1.65 }))).flat();
     const blocked = seats.some((seat) => Math.abs(x - seat.x) < 0.60 && Math.abs(z - seat.z) < 0.60);
     const now = Date.now();
-    const colliding = participantsRef.current.some((person) => person.id !== selfIdRef.current && person.connected && Math.hypot(x - person.x, z - person.z) < 0.62);
+    const heldPartnerId = participantsRef.current.find((person) => person.id === selfIdRef.current)?.holdingHandsWith;
+    const colliding = participantsRef.current.some((person) => person.id !== selfIdRef.current && person.id !== heldPartnerId && person.connected && Math.hypot(x - person.x, z - person.z) < 0.62);
     if (blocked || colliding) { x = current.x; z = current.z; }
     if ((colliding || blocked) && heldKeys.current.has('shift') && now - lastBumpRef.current > 1500) {
       lastBumpRef.current = now;
