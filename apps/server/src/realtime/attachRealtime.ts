@@ -116,21 +116,25 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
           // do corpo do avatar, não apenas as dimensões físicas do assento.
           const seats = Array.from({ length: 5 }, (_, row) =>
             Array.from({ length: 8 }, (_, col) => ({ x: (col - 3.5) * 1.25, z: 1 + row * 1.65 }))).flat();
+          // A posição do ator é o centro do assento. A primeira posição fica no corredor
+          // entre fileiras (0,825 m), na frente da cadeira, em vez de 1,3 m, que cai
+          // dentro da zona de bloqueio da fileira seguinte e fazia a ação ser rejeitada.
           const candidates = [
-            { x: actor.x, z: actor.z - 1.3 },
-            { x: actor.x - 0.95, z: actor.z - 0.95 },
-            { x: actor.x + 0.95, z: actor.z - 0.95 },
-            { x: actor.x - 1.15, z: actor.z - 0.1 },
-            { x: actor.x + 1.15, z: actor.z - 0.1 },
-            { x: actor.x, z: actor.z + 1.3 },
-            { x: actor.x - 0.95, z: actor.z + 0.95 },
-            { x: actor.x + 0.95, z: actor.z + 0.95 },
+            { x: actor.x, z: actor.z - 0.825 },
+            { x: actor.x - 0.625, z: actor.z - 0.825 },
+            { x: actor.x + 0.625, z: actor.z - 0.825 },
+            { x: actor.x - 0.625, z: actor.z },
+            { x: actor.x + 0.625, z: actor.z },
+            { x: actor.x, z: actor.z + 0.825 },
+            { x: actor.x - 0.625, z: actor.z + 0.825 },
+            { x: actor.x + 0.625, z: actor.z + 0.825 },
           ];
           const safeSpot = candidates.find((spot) =>
-            spot.x >= -8 && spot.x <= 8 && spot.z >= -1 && spot.z <= 9 &&
-            !seats.some((seat) => Math.abs(spot.x - seat.x) < 0.62 && Math.abs(spot.z - seat.z) < 0.62) &&
+            spot.x >= -9.05 && spot.x <= 9.05 && spot.z >= -9.35 && spot.z <= 9.2 &&
+            // Circular clearance includes the avatar's body and chair footprint.
+            !seats.some((seat) => Math.hypot(spot.x - seat.x, spot.z - seat.z) < 0.68) &&
             ![...found.room.participants.values()].some((person) =>
-              person.id !== actor.id && person.connected && Math.hypot(spot.x - person.x, spot.z - person.z) < 0.78));
+              person.id !== actor.id && person.connected && Math.hypot(spot.x - person.x, spot.z - person.z) < 0.68));
           if (safeSpot) {
             updateParticipantPosition(roomId, actor.id, {
               x: safeSpot.x,
