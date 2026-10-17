@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { io, type Socket } from 'socket.io-client';
 import { CinemaCanvas } from '../../../three/CinemaCanvas';
@@ -164,7 +164,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     frame = window.requestAnimationFrame(tick);
     return () => { window.cancelAnimationFrame(frame); window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp); window.removeEventListener('blur', clearKeys); };
   }, [move]);
-  const updateJoystick = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+  const updateJoystick = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     const element = joystickRef.current;
     if (!element) return;
     const rect = element.getBoundingClientRect();
