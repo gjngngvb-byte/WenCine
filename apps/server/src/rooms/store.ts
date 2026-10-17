@@ -88,8 +88,9 @@ export function updateParticipantPosition(roomId: string, participantId: string,
   const room = findRoom(roomId);
   const participant = room?.participants.get(participantId);
   if (!room || !participant) return undefined;
-  participant.x = Math.max(-8, Math.min(8, position.x));
-  participant.z = Math.max(-1, Math.min(9, position.z));
+  // Limites alinhados ao espaço navegável do cinema, inclusive o corredor até a tela.
+  participant.x = Math.max(-9.05, Math.min(9.05, position.x));
+  participant.z = Math.max(-9.35, Math.min(9.2, position.z));
   participant.rotation = position.rotation;
   return { room, participant };
 }
