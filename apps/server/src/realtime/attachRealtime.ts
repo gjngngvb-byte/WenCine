@@ -278,7 +278,7 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
         if (!target || !target.connected || target.id === actor.id || !closeEnough(actor, target)) return;
         if (target.displayName === 'Bot de Teste') { if (action === 'offer_hand') { actor.holdingHandsWith = target.id; target.holdingHandsWith = actor.id; } notifyAction(target, action === 'offer_hand' ? 'hold_hands' : action); return; }
         const seatedTogether = actor.pose === 'sitting_chair' && target.pose === 'sitting_chair' && Math.hypot(actor.x - target.x, actor.z - target.z) <= 1.85;
-        if ((target.displayName === 'Bot de Teste' || seatedTogether) && (action === 'handsy' || action === 'kiss' || action === 'peck' || action === 'hug')) { notifyAction(target, action); return; }
+        if ((target.displayName === 'Bot de Teste' || seatedTogether) && (action === 'handsy' || action === 'kiss' || action === 'peck')) { notifyAction(target, action); return; }
         const requestedAction = action === 'offer_hand' ? 'hold_hands' : action;
         const id = randomUUID();
         const request: PendingSocialRequest = { id, roomId, fromId: actor.id, toId: target.id, action: requestedAction, createdAt: Date.now() };
