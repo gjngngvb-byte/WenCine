@@ -32,7 +32,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   const [mobileVector, setMobileVector] = useState({ x: 0, z: 0 });
   const joystickRef = useRef<HTMLDivElement | null>(null);
   const [pose, setPose] = useState<'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'>('standing');
-  const [cameraMode, setCameraMode] = useState<'third' | 'first' | 'second'>('third');
+  const [cameraMode, setCameraMode] = useState<'third' | 'first'>('third');
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null);
   const [pendingRequest, setPendingRequest] = useState<{ requestId: string; fromId: string; fromName: string; action: string } | null>(null);
   const [socialStatus, setSocialStatus] = useState('');
@@ -134,6 +134,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
         event.preventDefault(); heldKeys.current.add(key); return;
       }
       if (event.repeat) return;
+      if (key === 'v') { event.preventDefault(); setCameraMode((current) => current === 'third' ? 'first' : 'third'); return; }
       const context = gameplayRef.current;
       if (key === ' ') { event.preventDefault(); if (['fallen', 'lying_back', 'sitting', 'sitting_chair', 'crouching'].includes(context.pose)) { standUp(); } else if (context.pose === 'standing') socialAction('jump'); }
       if (key === 'control') {
@@ -288,7 +289,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
       <div className={'connection-state ' + (connection === 'Conectado' ? 'is-connected' : '')}><span />{connection}</div></header>
     {error && <p className="inline-error" role="status">{error}</p>}
     <div className="experience-layout"><section className="cinema-stage"><div className="stage-label"><span>WENCINE / SALA 3D</span><span>{participants.filter((p) => p.connected).length} participante(s)</span></div>
-      <div className="camera-mode-controls" role="group" aria-label="Modo de câmera"><span>Câmera</span><button type="button" className={cameraMode === 'third' ? 'active' : ''} aria-pressed={cameraMode === 'third'} onClick={() => setCameraMode('third')}>Atual</button><button type="button" className={cameraMode === 'first' ? 'active' : ''} aria-pressed={cameraMode === 'first'} onClick={() => setCameraMode('first')}>1ª pessoa</button><button type="button" className={cameraMode === 'second' ? 'active' : ''} aria-pressed={cameraMode === 'second'} onClick={() => setCameraMode('second')}>2ª pessoa</button></div>
+      <div className="camera-mode-hint" aria-live="polite">Câmera: {cameraMode === 'third' ? 'atrás do personagem' : 'primeira pessoa'} · pressione V para alternar</div>
       <div className="canvas-wrap"><CinemaCanvas participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} nearbySeat={nearestSeatDistance <= 1.3 && pose === 'standing' ? nearestSeat : null} onSitChair={(seat) => sitInChair(seat)} onSelectParticipant={(id) => setSelectedParticipantId(id)} cameraMode={cameraMode} /></div>
       <div className="movement-help">WASD / setas: andar · Espaço: pular · E: interagir · Shift: correr · Ctrl: agachar · Ctrl duas vezes: deitar</div>
       <div className="mobile-controls" aria-label="Controles de movimentação">
