@@ -140,8 +140,15 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
         if (targetPerson) io.to(roomId).emit('avatar:moved', safeParticipant(targetPerson));
       };
       if (action === 'jump') { notifyAction(undefined, action); return; }
-      if (action === 'crouch') { actor.pose = actor.pose === 'crouching' ? 'standing' : 'crouching'; notifyAction(undefined, action); return; }
-      if (action === 'lie_back') { actor.pose = 'lying_back'; notifyAction(undefined, action); return; }
+      if (action === 'crouch') {
+        if (actor.pose !== 'standing' && actor.pose !== 'crouching') return;
+        actor.pose = actor.pose === 'crouching' ? 'standing' : 'crouching'; notifyAction(undefined, action); return;
+      }
+      if (action === 'lie_back') {
+        // Não permite deitar dentro de uma cadeira nem transformar uma pose sentada em pose deitada.
+        if (actor.pose !== 'standing' && actor.pose !== 'crouching' && actor.pose !== 'fallen') return;
+        actor.pose = 'lying_back'; notifyAction(undefined, action); return;
+      }
       if (action === 'sit' || action === 'sit_floor' || action === 'sit_chair' || action === 'stand' || action === 'fall') {
         if (action === 'stand' && actor.pose === 'sitting_chair') {
           const seats = Array.from({ length: 5 }, (_, row) =>
