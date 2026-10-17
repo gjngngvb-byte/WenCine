@@ -248,8 +248,9 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   }
   function standUp() {
     pendingSeatRef.current = null;
-    // A saída da cadeira é calculada pelo servidor para evitar ficar preso dentro dela.
-    setPose('standing');
+    // Não altere a pose de forma otimista: o servidor precisa confirmar uma posição
+    // livre primeiro. Se não houver espaço, o avatar continua sentado em vez de
+    // parecer que levantou e permanecer visualmente dentro da cadeira.
     heldKeys.current.clear();
     socialAction('stand');
   }
