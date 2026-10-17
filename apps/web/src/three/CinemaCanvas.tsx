@@ -46,13 +46,15 @@ function Avatar({ person, local = false, socialEffects, allPeople, onSelectParti
     const contactDx = partner ? partner.x - person.x : 0;
     const contactDz = partner ? partner.z - person.z : 0;
     const contactLength = Math.hypot(contactDx, contactDz) || 1;
+    // Sentado, o quadril fica um pouco acima do assento e ligeiramente à frente,
+    // para não atravessar a almofada nem o encosto.
     const targetX = person.pose === 'sitting_chair' ? person.x : person.x + (partner ? contactDx / contactLength * 0.34 : 0);
-    const targetZ = person.pose === 'sitting_chair' ? person.z : person.z + (partner ? contactDz / contactLength * 0.34 : 0);
+    const targetZ = person.pose === 'sitting_chair' ? person.z - 0.16 : person.z + (partner ? contactDz / contactLength * 0.34 : 0);
     const sitting = person.pose === 'sitting' || person.pose === 'sitting_chair';
     const fallen = person.pose === 'fallen';
     const lyingBack = person.pose === 'lying_back';
     const crouching = person.pose === 'crouching';
-    const targetY = person.pose === 'sitting_chair' ? 0.05 : person.pose === 'sitting' ? -0.22 : fallen || lyingBack ? -0.08 : 0;
+    const targetY = person.pose === 'sitting_chair' ? 0.15 : person.pose === 'sitting' ? -0.22 : fallen || lyingBack ? -0.08 : 0;
     const jumpLift = activeEffect?.action === 'jump' && age < 1 ? Math.sin(Math.min(1, age) * Math.PI) * 1.05 : 0;
     // Aproximação suave tanto ao sentar quanto ao levantar. A posição de rede continua autoritativa,
     // mas o modelo visual percorre o trajeto em vez de teletransportar.
