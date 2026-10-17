@@ -10,7 +10,7 @@ type Participant = {
   x: number; z: number; rotation: number; connected: boolean; pose?: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; holdingHandsWith?: string;
 };
 type SocialEffect = { id: string; action: string; actorId: string; targetId?: string; sentAt: number };
-type CameraMode = 'third' | 'first' | 'second';
+type CameraMode = 'third' | 'first';
 function Seat({ position }: { position: [number, number, number] }) {
   // O encosto fica para trás do avatar; todos os assentos olham para a tela (-Z).
   return <group position={position} rotation={[0, Math.PI, 0]}>
@@ -122,22 +122,20 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
   nearbySeat: { x: number; z: number } | null; onSitChair: ((seat: { x: number; z: number }) => void) | undefined; onSelectParticipant?: ((participantId: string) => void) | undefined; cameraMode: CameraMode;
 }) {
   const { camera } = useThree();
-  useEffect(() => {
-    if (cameraMode === 'third') { camera.position.set(0, 5.5, 10); camera.lookAt(0, 1.2, -2); }
-  }, [cameraMode, camera]);
-  useFrame(() => {
-    if (cameraMode === 'third') return;
+  useFrame((_, delta) => {
     const directionX = Math.sin(position.rotation);
     const directionZ = Math.cos(position.rotation);
     if (cameraMode === 'first') {
+      // Câmera nos olhos: acompanha a direção para a qual o avatar se vira ao andar.
       const eyeHeight = pose === 'sitting_chair' ? 1.12 : pose === 'sitting' ? 0.7 : pose === 'crouching' ? 0.92 : pose === 'lying_back' ? 0.35 : pose === 'fallen' ? 0.45 : 1.45;
-      camera.position.set(position.x + directionX * 0.04, eyeHeight, position.z + directionZ * 0.04);
+      camera.position.lerp(new THREE.Vector3(position.x + directionX * 0.04, eyeHeight, position.z + directionZ * 0.04), Math.min(1, delta * 14));
       camera.lookAt(position.x + directionX * 4, eyeHeight, position.z + directionZ * 4);
     } else {
-      // Mantém a câmera dentro do cinema mesmo quando o avatar chega à tela ou às paredes.
-      camera.position.set(THREE.MathUtils.clamp(position.x + directionX * 3.25, -9.2, 9.2), 1.9,
-        THREE.MathUtils.clamp(position.z + directionZ * 3.25, -9.6, 9.2));
-      camera.lookAt(position.x, 1.0, position.z);
+      // Terceira pessoa: segue atrás e um pouco acima, sempre acompanhando a rotação do avatar.
+      const targetX = THREE.MathUtils.clamp(position.x - directionX * 3.8, -9.1, 9.1);
+      const targetZ = THREE.MathUtils.clamp(position.z - directionZ * 3.8, -9.4, 9.1);
+      camera.position.lerp(new THREE.Vector3(targetX, 3.25, targetZ), Math.min(1, delta * 5));
+      camera.lookAt(position.x + directionX * 0.25, pose === 'sitting_chair' ? 0.9 : 1.15, position.z + directionZ * 0.25);
     }
   });
   const localPerson: Participant = { id: selfId || 'local', displayName: 'Você', color, accessory, expression, ...position, connected: true, pose };
@@ -164,7 +162,7 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
       const thrower = participants.find((person) => person.id === effect.actorId) ?? (effect.actorId === selfId ? localPerson : undefined);
       return thrower ? <ThrownSnack key={effect.id} effect={effect} x={thrower.x} z={thrower.z} /> : null;
     })}
-    <OrbitControls enabled={cameraMode === 'third'} target={[0, 1.2, -2]} enablePan={false} minDistance={4} maxDistance={15} minPolarAngle={0.45} maxPolarAngle={1.55} />
+    <OrbitControls enabled={false} />
   </>;
 }
 function ThrownSnack({ effect, x, z }: { effect: SocialEffect; x: number; z: number }) {
