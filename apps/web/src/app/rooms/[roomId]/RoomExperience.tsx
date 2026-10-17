@@ -40,7 +40,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   const [filmSummary, setFilmSummary] = useState<{ count: number; average: number } | null>(null);
   const lastMoveRef = useRef(0);
   const lastBumpRef = useRef(0);
-  const pendingSeatRef = useRef<{ x: number; z: number } | null>(null);
+  const pendingSeatRef = useRef<{ x: number; z: number; approachX: number; approachZ: number } | null>(null);
   const heldKeys = useRef(new Set<string>());
   const participantsRef = useRef<Participant[]>([]);
   participantsRef.current = participants;
@@ -161,8 +161,8 @@ export function RoomExperience({ roomId }: { roomId: string }) {
       const pendingSeat = pendingSeatRef.current;
       if (pendingSeat) {
         // Caminha até a frente da cadeira primeiro. Só depois inicia a animação de sentar.
-        const targetX = pendingSeat.x;
-        const targetZ = pendingSeat.z - 0.54;
+        const targetX = pendingSeat.approachX;
+        const targetZ = pendingSeat.approachZ;
         const current = positionRef.current;
         const dxSeat = targetX - current.x;
         const dzSeat = targetZ - current.z;
@@ -236,11 +236,18 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     setSocialStatus(action === 'offer_hand' ? 'Pedido de mão enviado.' : '');
   }
   function sitInChair(seat: { x: number; z: number }) {
-    // Caminha até a frente da cadeira e então o servidor confirma o assento exato.
-    pendingSeatRef.current = seat;
+    // Aproxima por um dos lados livres da cadeira, sem atravessar a colisão do assento.
+    const current = positionRef.current;
+    const offsetX = current.x - seat.x;
+    const offsetZ = current.z - seat.z;
+    const approach = Math.abs(offsetX) > Math.abs(offsetZ)
+      ? { x: seat.x + Math.sign(offsetX || 1) * 0.54, z: current.z }
+      : { x: current.x, z: seat.z + Math.sign(offsetZ || -1) * 0.54 };
+    pendingSeatRef.current = { ...seat, approachX: approach.x, approachZ: approach.z };
     heldKeys.current.clear();
   }
   function standUp() {
+    pendingSeatRef.current = null;
     // A saída da cadeira é calculada pelo servidor para evitar ficar preso dentro dela.
     setPose('standing');
     heldKeys.current.clear();
