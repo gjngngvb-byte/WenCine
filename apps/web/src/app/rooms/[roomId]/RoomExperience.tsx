@@ -33,6 +33,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   const joystickRef = useRef<HTMLDivElement | null>(null);
   const [pose, setPose] = useState<'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'>('standing');
   const [cameraMode, setCameraMode] = useState<'third' | 'first'>('third');
+  const [screenMode, setScreenMode] = useState<'normal' | 'game' | 'cinema'>('normal');
   const [cameraYaw, setCameraYaw] = useState(0);
   const [cameraPitch, setCameraPitch] = useState(-0.12);
   const cameraYawRef = useRef(0);
@@ -211,8 +212,8 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     const onMouseMove = (event: MouseEvent) => {
       const canvas = canvasWrapRef.current?.querySelector('canvas');
       if (!canvas || document.pointerLockElement !== canvas) return;
-      const nextYaw = cameraYawRef.current + event.movementX * 0.0024;
-      const nextPitch = Math.max(-0.58, Math.min(0.42, cameraPitchRef.current - event.movementY * 0.0018));
+      const nextYaw = cameraYawRef.current + event.movementX * 0.0040;
+      const nextPitch = Math.max(-0.58, Math.min(0.42, cameraPitchRef.current - event.movementY * 0.0030));
       cameraYawRef.current = nextYaw;
       cameraPitchRef.current = nextPitch;
       setCameraYaw(nextYaw);
@@ -323,14 +324,17 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   }
   if (error && !session) return <main className="room-error"><h1>Não foi possível entrar</h1><p>{error}</p><button className="primary-button" onClick={() => router.push('/')}>Voltar ao início</button></main>;
   if (!session || !room) return <main className="room-loading"><div className="loading-orb" /><p>{error || 'Preparando seu cinema…'}</p><button className="text-button" onClick={() => router.push('/')}>Voltar ao início</button></main>;
-  return <main className="experience-shell">
+  return <main className={'experience-shell screen-mode-' + screenMode}>
     <header className="experience-topbar"><button className="back-button" onClick={() => router.push('/')} aria-label="Voltar ao início">←</button>
       <div className="experience-title"><strong>{room.name}</strong><span>Sala {room.id} · {room.visibility === 'private' ? 'Privada' : 'Pública'}</span></div>
+      <div className="screen-mode-actions" aria-label="Modos de tela"><button type="button" className={screenMode === 'game' ? 'active' : ''} onClick={() => { document.exitPointerLock?.(); setScreenMode((mode) => mode === 'game' ? 'normal' : 'game'); }} aria-pressed={screenMode === 'game'}>Tela cheia do jogo</button><button type="button" className={screenMode === 'cinema' ? 'active' : ''} onClick={() => { document.exitPointerLock?.(); setScreenMode((mode) => mode === 'cinema' ? 'normal' : 'cinema'); }} aria-pressed={screenMode === 'cinema'}>Cinema + chat</button></div>
       <div className={'connection-state ' + (connection === 'Conectado' ? 'is-connected' : '')}><span />{connection}</div></header>
     {error && <p className="inline-error" role="status">{error}</p>}
     <div className="experience-layout"><section className="cinema-stage"><div className="stage-label"><span>WENCINE / SALA 3D</span><span>{participants.filter((p) => p.connected).length} participante(s)</span></div>
+      <div className="screen-mode-toolbar"><button type="button" onClick={() => { document.exitPointerLock?.(); setScreenMode('normal'); }}>Sair da tela cheia</button></div>
       <div className="camera-mode-hint" aria-live="polite">{cameraMode === 'third' ? 'Terceira pessoa' : 'Primeira pessoa'} · clique no cinema e mova o mouse para olhar · TAB troca câmera · Esc libera o mouse</div>
       <div className="canvas-wrap" ref={canvasWrapRef} onPointerDown={(event) => { if (event.target instanceof HTMLCanvasElement && document.pointerLockElement !== event.target) void event.target.requestPointerLock(); }}><CinemaCanvas participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} nearbySeat={nearestSeatDistance <= 1.3 && pose === 'standing' ? nearestSeat : null} onSitChair={(seat) => sitInChair(seat)} onSelectParticipant={(id) => setSelectedParticipantId(id)} cameraMode={cameraMode} cameraYaw={cameraYaw} cameraPitch={cameraPitch} /></div>
+      {screenMode === 'cinema' && <section className="cinema-chat-overlay" aria-label="Chat ao vivo"><div className="cinema-chat-heading"><strong>Chat ao vivo</strong><span>● AO VIVO</span></div><div className="cinema-chat-messages" aria-live="polite">{messages.length ? messages.slice(-30).map((chat) => <article className="cinema-chat-message" key={chat.id}><strong>{chat.displayName}{chat.role === 'owner' ? ' 👑' : ''}</strong><span>{chat.message}</span></article>) : <p>As mensagens aparecerão aqui.</p>}</div><form className="cinema-chat-form" onSubmit={sendChat}><input value={message} onChange={(event) => setMessage(event.target.value)} maxLength={500} placeholder="Enviar mensagem…" aria-label="Mensagem do chat ao vivo" /><button type="submit" disabled={!message.trim()} aria-label="Enviar mensagem">↑</button></form></section>}
       <div className="movement-help">WASD / setas: andar · Espaço: pular · E: interagir · Shift: correr · Ctrl: agachar · Ctrl duas vezes: deitar</div>
       <div className="mobile-controls" aria-label="Controles de movimentação">
         <div className="mobile-joystick-zone"><div className="mobile-joystick" ref={joystickRef} onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); updateJoystick(event); }} onPointerMove={(event) => { if (event.buttons) updateJoystick(event); }} onPointerUp={() => setMobileVector({ x: 0, z: 0 })} onPointerCancel={() => setMobileVector({ x: 0, z: 0 })} onLostPointerCapture={() => setMobileVector({ x: 0, z: 0 })} role="application" aria-label="Joystick virtual: arraste para andar"><span className="mobile-joystick-knob" style={{ transform: `translate(${mobileVector.x * 35}px, ${mobileVector.z * 35}px)` }} /></div><span className="joystick-caption">MOVER</span></div>

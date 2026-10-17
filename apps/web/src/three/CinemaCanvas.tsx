@@ -133,7 +133,8 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
       const distance = 4.1;
       const targetX = THREE.MathUtils.clamp(position.x - Math.sin(cameraYaw) * distance, -9.1, 9.1);
       const targetZ = THREE.MathUtils.clamp(position.z + Math.cos(cameraYaw) * distance, -9.4, 9.1);
-      const targetY = 2.8 + Math.sin(cameraPitch) * 2.0;
+      // Mouse para cima aumenta o pitch e faz a visão apontar para cima; a órbita acompanha no sentido inverso.
+      const targetY = THREE.MathUtils.clamp(2.8 - (Math.sin(cameraPitch) - Math.sin(-0.12)) * distance, 1.35, 4.5);
       camera.position.lerp(new THREE.Vector3(targetX, targetY, targetZ), Math.min(1, delta * 8));
       camera.lookAt(position.x, pose === 'sitting_chair' ? 0.9 : 1.1, position.z);
     }
