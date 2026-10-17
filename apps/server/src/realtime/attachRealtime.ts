@@ -172,6 +172,16 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
             z: safeSpot.z,
             rotation: Math.PI,
           });
+          // Primeiro desloca o avatar ainda sentado para fora da cadeira. Só depois
+          // muda para a pose em pé, para clientes antigos não mostrarem o corpo atravessando o assento.
+          io.to(roomId).emit('avatar:moved', safeParticipant(actor));
+          setTimeout(() => {
+            const latestActor = findParticipantByToken(roomId, token)?.participant;
+            if (!latestActor || latestActor.id !== actor.id || latestActor.pose !== 'sitting_chair') return;
+            latestActor.pose = 'standing';
+            notifyAction(undefined, 'stand');
+          }, 360).unref();
+          return;
         }
         if (action === 'sit_chair') {
           const seats = Array.from({ length: 5 }, (_, row) =>
