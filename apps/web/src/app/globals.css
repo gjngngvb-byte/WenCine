@@ -190,3 +190,59 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #
 .camera-mode-controls button:hover { border-color: #b69cff; }
 .camera-mode-controls button.active { border-color: #c4b5fd; background: linear-gradient(135deg,#bba4ff,#8057d8); color: #171124; box-shadow: 0 0 .8rem #8b5cf633; }
 @media (max-width: 600px) { .camera-mode-controls { gap: .35rem; padding: .55rem .6rem; }.camera-mode-controls > span { width: 100%; }.camera-mode-controls button { flex: 1; min-width: 0; padding: .45rem .35rem; font-size: .68rem; } }
+
+
+/* Modos de visualização do WenCine */
+.screen-mode-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .45rem; }
+.screen-mode-actions button, .screen-mode-toolbar button { border: 1px solid #5d4b7d; border-radius: .65rem; padding: .55rem .75rem; background: #211c31; color: #eee8ff; font-size: .72rem; font-weight: 700; }
+.screen-mode-actions button.active { background: #8b5cf6; border-color: #c4b5fd; color: #fff; }
+.cinema-stage { position: relative; }
+.screen-mode-toolbar { display: none; }
+.cinema-chat-overlay { display: none; }
+.experience-shell.screen-mode-game,
+.experience-shell.screen-mode-cinema { position: fixed; inset: 0; z-index: 1000; width: 100vw; height: 100dvh; min-height: 0; overflow: hidden; padding: 0; background: #08070d; }
+.screen-mode-game .experience-topbar,
+.screen-mode-cinema .experience-topbar,
+.screen-mode-game .inline-error,
+.screen-mode-cinema .inline-error,
+.screen-mode-game .experience-footer,
+.screen-mode-cinema .experience-footer { display: none; }
+.screen-mode-game .experience-layout,
+.screen-mode-cinema .experience-layout { display: block; width: 100%; height: 100%; max-width: none; margin: 0; }
+.screen-mode-game .cinema-stage,
+.screen-mode-cinema .cinema-stage { position: relative; width: 100%; height: 100%; min-height: 0; border: 0; border-radius: 0; overflow: hidden; }
+.screen-mode-game .stage-label,
+.screen-mode-cinema .stage-label,
+.screen-mode-game .camera-mode-hint,
+.screen-mode-cinema .camera-mode-hint,
+.screen-mode-game .movement-help,
+.screen-mode-cinema .movement-help,
+.screen-mode-game .mobile-controls,
+.screen-mode-cinema .mobile-controls,
+.screen-mode-game .room-sidebar,
+.screen-mode-cinema .room-sidebar { display: none !important; }
+.screen-mode-game .canvas-wrap,
+.screen-mode-cinema .canvas-wrap { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; touch-action: none; }
+.screen-mode-game .canvas-wrap canvas,
+.screen-mode-cinema .canvas-wrap canvas { width: 100% !important; height: 100% !important; }
+.screen-mode-game .screen-mode-toolbar,
+.screen-mode-cinema .screen-mode-toolbar { display: block; position: absolute; z-index: 30; top: .8rem; right: .8rem; }
+.screen-mode-cinema .screen-mode-toolbar { top: .8rem; left: .8rem; right: auto; }
+.screen-mode-game .screen-mode-toolbar button,
+.screen-mode-cinema .screen-mode-toolbar button { background: #171522d9; backdrop-filter: blur(12px); }
+.screen-mode-cinema .cinema-chat-overlay { display: flex; position: absolute; z-index: 25; right: clamp(.6rem, 2vw, 1.5rem); bottom: clamp(.6rem, 2vw, 1.5rem); width: min(22rem, calc(100vw - 1.2rem)); max-height: min(48dvh, 28rem); flex-direction: column; overflow: hidden; border: 1px solid #ffffff25; border-radius: 1rem; background: #100d18d9; box-shadow: 0 1rem 3rem #0008; backdrop-filter: blur(16px); color: #fff; }
+.cinema-chat-heading { display: flex; justify-content: space-between; align-items: center; padding: .7rem .85rem; border-bottom: 1px solid #ffffff18; font-size: .78rem; }
+.cinema-chat-heading span { color: #34d399; font-size: .62rem; font-weight: 800; letter-spacing: .08em; }
+.cinema-chat-messages { display: flex; flex-direction: column; gap: .55rem; overflow-y: auto; padding: .7rem .85rem; }
+.cinema-chat-messages > p { margin: 0; color: #c4bcd5; font-size: .75rem; }
+.cinema-chat-message { display: flex; flex-direction: column; gap: .12rem; font-size: .75rem; line-height: 1.4; overflow-wrap: anywhere; }
+.cinema-chat-message strong { color: #d5c4ff; font-size: .7rem; }
+.cinema-chat-form { display: flex; gap: .4rem; padding: .65rem; border-top: 1px solid #ffffff18; }
+.cinema-chat-form input { min-width: 0; flex: 1; border: 1px solid #ffffff20; border-radius: .55rem; padding: .65rem; background: #ffffff0d; color: white; font-size: .75rem; }
+.cinema-chat-form button { width: 2.4rem; border: 0; border-radius: .55rem; background: #b69cff; color: #171124; font-size: 1.1rem; font-weight: 900; }
+@media (max-width: 700px) {
+  .experience-topbar { flex-wrap: wrap; }
+  .screen-mode-actions { width: 100%; order: 5; }
+  .screen-mode-actions button { flex: 1; }
+  .screen-mode-cinema .cinema-chat-overlay { width: min(19rem, calc(100vw - 1rem)); max-height: 38dvh; right: .5rem; bottom: .5rem; }
+}
