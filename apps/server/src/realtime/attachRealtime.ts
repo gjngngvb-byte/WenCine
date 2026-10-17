@@ -111,6 +111,14 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
       if (action === 'crouch') { actor.pose = actor.pose === 'crouching' ? 'standing' : 'crouching'; notifyAction(undefined, action); return; }
       if (action === 'lie_back') { actor.pose = 'lying_back'; notifyAction(undefined, action); return; }
       if (action === 'sit' || action === 'sit_floor' || action === 'sit_chair' || action === 'stand' || action === 'fall') {
+        if (action === 'stand' && actor.pose === 'sitting_chair') {
+          // A cadeira fica atrás do personagem; sair pelo lado da tela evita continuar preso no assento.
+          updateParticipantPosition(roomId, actor.id, {
+            x: actor.x,
+            z: actor.z - 0.95,
+            rotation: Math.PI,
+          });
+        }
         if (action === 'sit_chair') {
           const seats = Array.from({ length: 5 }, (_, row) =>
             Array.from({ length: 8 }, (_, col) => ({ x: (col - 3.5) * 1.25, z: 1 + row * 1.65 }))).flat();
