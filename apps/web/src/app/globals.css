@@ -144,6 +144,9 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #
 .friend-interaction-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; }
 .friend-interaction-actions button { min-height: 2.5rem; border: 1px solid #a78bfa55; border-radius: .55rem; padding: .45rem .55rem; background: #8b5cf61a; color: #f3edff; font-size: .76rem; font-weight: 650; cursor: pointer; }
 .friend-interaction-actions button:hover { background: #8b5cf644; border-color: #c4b5fd; }
+.friend-interaction-actions button:disabled { opacity: .42; cursor: not-allowed; filter: saturate(.45); }
+.friend-interaction-actions button:focus-visible { outline: 2px solid #c4b5fd; outline-offset: 2px; }
+.friend-interaction-actions button:active:not(:disabled) { transform: scale(.98); background: #8b5cf655; }
 
 /* Controles móveis com ações contextuais, inspirados em jogos mobile */
 .mobile-controls { display: none; }
