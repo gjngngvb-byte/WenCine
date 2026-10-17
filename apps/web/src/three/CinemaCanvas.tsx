@@ -52,7 +52,7 @@ function Avatar({ person, local = false, socialEffects, allPeople, onSelectParti
     const fallen = person.pose === 'fallen';
     const lyingBack = person.pose === 'lying_back';
     const crouching = person.pose === 'crouching';
-    const targetY = person.pose === 'sitting_chair' ? 0.18 : person.pose === 'sitting' ? -0.22 : fallen || lyingBack ? -0.08 : 0;
+    const targetY = person.pose === 'sitting_chair' ? 0.12 : person.pose === 'sitting' ? -0.22 : fallen || lyingBack ? -0.08 : 0;
     const jumpLift = activeEffect?.action === 'jump' && age < 1 ? Math.sin(Math.min(1, age) * Math.PI) * 1.05 : 0;
     group.current.position.lerp(new THREE.Vector3(targetX, targetY + jumpLift, targetZ), Math.min(1, delta * (isContactAnimation ? 7 : 9)));
     const targetRotation = partner ? Math.atan2(contactDx, contactDz) : person.rotation;
@@ -76,7 +76,7 @@ function Avatar({ person, local = false, socialEffects, allPeople, onSelectParti
     if (leftLeg.current) leftLeg.current.rotation.x = sitting ? -1.15 : fallen ? 0.8 : -swing * 0.8;
     if (rightLeg.current) rightLeg.current.rotation.x = sitting ? -1.15 : fallen ? -0.35 : swing * 0.8;
   });
-  return <group ref={group} position={[person.x, 0, person.z]} onClick={(event) => { if (!local && onSelectParticipant) { event.stopPropagation(); onSelectParticipant(person.id); } }}>
+  return <group ref={group} position={[person.x, 0, person.z]} onClick={(event) => { if (onSelectParticipant) { event.stopPropagation(); onSelectParticipant(person.id); } }}>
     <mesh position={[0, 0.57, 0]} castShadow><capsuleGeometry args={[0.23, 0.34, 5, 10]} /><meshStandardMaterial color={bodyColor} roughness={0.58} /></mesh>
     <mesh position={[0, 0.33, 0]} castShadow><sphereGeometry args={[0.2, 16, 12]} /><meshStandardMaterial color={bodyColor} roughness={0.7} /></mesh>
     <group ref={leftArm} position={[-0.25, 0.67, 0]}><mesh position={[0, -0.18, 0]} rotation={[0, 0, -0.12]} castShadow><capsuleGeometry args={[0.075, 0.28, 4, 8]} /><meshStandardMaterial color={bodyColor} /></mesh><mesh position={[0, -0.34, 0.015]}><sphereGeometry args={[0.075, 10, 8]} /><meshStandardMaterial color="#f1d3c3" /></mesh></group>
@@ -128,7 +128,7 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
     <mesh position={[9.7, 2.6, 0]}><boxGeometry args={[0.3, 5.2, 21]} /><meshStandardMaterial color="#31263f" /></mesh>
     <mesh position={[0, 5.8, 0]}><boxGeometry args={[19.4, 0.3, 21]} /><meshStandardMaterial color="#191622" /></mesh>
     {Array.from({ length: 9 }, (_, i) => <pointLight key={i} position={[(i - 4) * 2.2, 5.5, 3]} color={i % 2 ? '#8b5cf6' : '#60a5fa'} intensity={1.2} distance={4} />)}
-    <Avatar person={localPerson} local socialEffects={socialEffects} allPeople={[localPerson, ...participants.filter((person) => person.id !== selfId && person.connected)]} />
+    <Avatar person={localPerson} local onSelectParticipant={onSelectParticipant} socialEffects={socialEffects} allPeople={[localPerson, ...participants.filter((person) => person.id !== selfId && person.connected)]} />
     {participants.filter((person) => person.id !== selfId && person.connected).map((person) => <Avatar key={person.id} person={person} socialEffects={socialEffects} allPeople={[localPerson, ...participants.filter((candidate) => candidate.id !== selfId && candidate.connected)]} onSelectParticipant={onSelectParticipant} />)}
     {socialEffects.filter((effect) => ['throw_popcorn', 'throw_tomato'].includes(effect.action) && Date.now() - effect.sentAt < 1800).map((effect) => {
       const thrower = participants.find((person) => person.id === effect.actorId) ?? (effect.actorId === selfId ? localPerson : undefined);
