@@ -52,7 +52,7 @@ function Avatar({ person, local = false, socialEffects, allPeople, onSelectParti
     const fallen = person.pose === 'fallen';
     const lyingBack = person.pose === 'lying_back';
     const crouching = person.pose === 'crouching';
-    const targetY = person.pose === 'sitting_chair' ? 0.12 : person.pose === 'sitting' ? -0.22 : fallen || lyingBack ? -0.08 : 0;
+    const targetY = person.pose === 'sitting_chair' ? 0.14 : person.pose === 'sitting' ? -0.22 : fallen || lyingBack ? -0.08 : 0;
     const jumpLift = activeEffect?.action === 'jump' && age < 1 ? Math.sin(Math.min(1, age) * Math.PI) * 1.05 : 0;
     group.current.position.lerp(new THREE.Vector3(targetX, targetY + jumpLift, targetZ), Math.min(1, delta * (isContactAnimation ? 7 : 9)));
     const targetRotation = partner ? Math.atan2(contactDx, contactDz) : person.rotation;
