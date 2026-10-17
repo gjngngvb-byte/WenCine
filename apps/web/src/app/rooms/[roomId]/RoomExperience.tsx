@@ -40,6 +40,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   const [filmSummary, setFilmSummary] = useState<{ count: number; average: number } | null>(null);
   const lastMoveRef = useRef(0);
   const lastBumpRef = useRef(0);
+  const pendingSeatRef = useRef<{ x: number; z: number } | null>(null);
   const heldKeys = useRef(new Set<string>());
   const participantsRef = useRef<Participant[]>([]);
   participantsRef.current = participants;
@@ -157,8 +158,34 @@ export function RoomExperience({ roomId }: { roomId: string }) {
       const keys = heldKeys.current;
       const dx = (keys.has('d') || keys.has('arrowright') ? 1 : 0) - (keys.has('a') || keys.has('arrowleft') ? 1 : 0);
       const dz = (keys.has('s') || keys.has('arrowdown') ? 1 : 0) - (keys.has('w') || keys.has('arrowup') ? 1 : 0);
-      const currentPose = gameplayRef.current.pose;
-      if ((currentPose === 'standing' || currentPose === 'crouching') && (dx || dz)) { const length = Math.hypot(dx, dz) || 1; const speed = keys.has('shift') ? 4.2 : currentPose === 'crouching' ? 1.5 : 2.8; move(dx / length * speed * elapsed, dz / length * speed * elapsed); }
+      const pendingSeat = pendingSeatRef.current;
+      if (pendingSeat) {
+        // Caminha até a frente da cadeira primeiro. Só depois inicia a animação de sentar.
+        const targetX = pendingSeat.x;
+        const targetZ = pendingSeat.z - 0.54;
+        const current = positionRef.current;
+        const dxSeat = targetX - current.x;
+        const dzSeat = targetZ - current.z;
+        const distance = Math.hypot(dxSeat, dzSeat);
+        if (distance <= 0.075) {
+          pendingSeatRef.current = null;
+          heldKeys.current.clear();
+          setPose('sitting_chair');
+          socialAction('sit_chair', { seatX: pendingSeat.x, seatZ: pendingSeat.z });
+        } else {
+          const step = Math.min(distance, 2.8 * elapsed);
+          const beforeX = current.x;
+          const beforeZ = current.z;
+          move((dxSeat / distance) * step, (dzSeat / distance) * step);
+          if (Math.abs(positionRef.current.x - beforeX) < 0.0001 && Math.abs(positionRef.current.z - beforeZ) < 0.0001) {
+            pendingSeatRef.current = null;
+            setSocialStatus('O caminho até essa cadeira está bloqueado. Tente outra cadeira.');
+          }
+        }
+      } else {
+        const currentPose = gameplayRef.current.pose;
+        if ((currentPose === 'standing' || currentPose === 'crouching') && (dx || dz)) { const length = Math.hypot(dx, dz) || 1; const speed = keys.has('shift') ? 4.2 : currentPose === 'crouching' ? 1.5 : 2.8; move(dx / length * speed * elapsed, dz / length * speed * elapsed); }
+      }
       frame = window.requestAnimationFrame(tick);
     };
     frame = window.requestAnimationFrame(tick);
@@ -209,10 +236,9 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     setSocialStatus(action === 'offer_hand' ? 'Pedido de mão enviado.' : '');
   }
   function sitInChair(seat: { x: number; z: number }) {
-    // O servidor confirma o assento; o modelo 3D faz o trajeto animado até ele.
-    setPose('sitting_chair');
+    // Caminha até a frente da cadeira e então o servidor confirma o assento exato.
+    pendingSeatRef.current = seat;
     heldKeys.current.clear();
-    socialAction('sit_chair', { seatX: seat.x, seatZ: seat.z });
   }
   function standUp() {
     // A saída da cadeira é calculada pelo servidor para evitar ficar preso dentro dela.
