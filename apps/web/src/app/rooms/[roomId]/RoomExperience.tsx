@@ -45,7 +45,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   participantsRef.current = participants;
   const selfIdRef = useRef('');
   selfIdRef.current = selfId;
-  const gameplayRef = useRef({ pose, nearestSeatDistance: Infinity, seatedNeighbor: undefined as Participant | undefined, nearbyParticipant: undefined as Participant | undefined, isHoldingHands: false });
+  const gameplayRef = useRef({ pose, nearestSeatDistance: Infinity, nearestSeat: undefined as { x: number; z: number } | undefined, seatedNeighbor: undefined as Participant | undefined, nearbyParticipant: undefined as Participant | undefined, isHoldingHands: false });
 
   useEffect(() => {
     const raw = sessionStorage.getItem('wencine:session:' + roomId);
@@ -140,7 +140,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
         if (context.isHoldingHands) { socialAction('release_hand'); return; }
         if (context.pose === 'sitting_chair' && context.seatedNeighbor) { const actions = ['share_popcorn', 'handsy', 'kiss', 'peck', 'steal_popcorn', 'slap']; const action = actions[seatedActionIndex % actions.length]!; seatedActionIndex += 1; socialAction(action, { targetId: context.seatedNeighbor.id }); return; }
         if (context.pose === 'sitting' || context.pose === 'sitting_chair' || context.pose === 'fallen' || context.pose === 'lying_back' || context.pose === 'crouching') { setPose('standing'); socialAction('stand'); return; }
-        if (context.nearestSeatDistance <= 1.3) { setPose('sitting_chair'); socialAction('sit_chair'); return; }
+        if (context.nearestSeatDistance <= 1.3 && context.nearestSeat) { sitInChair(context.nearestSeat); return; }
         if (context.nearbyParticipant) { socialAction('offer_hand', { targetId: context.nearbyParticipant.id }); return; }
         socialAction('throw_popcorn');
       }
@@ -201,11 +201,20 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   const selectedParticipant = participants.find((person) => person.id === selectedParticipantId && person.id !== selfId && person.connected);
   const selectedSeatedNeighbor = pose === 'sitting_chair' && selectedParticipant?.pose === 'sitting_chair' &&
     Math.hypot(selectedParticipant.x - position.x, selectedParticipant.z - position.z) <= 1.85 ? selectedParticipant : undefined;
-  gameplayRef.current = { pose, nearestSeatDistance, seatedNeighbor, nearbyParticipant, isHoldingHands };
+  gameplayRef.current = { pose, nearestSeatDistance, nearestSeat: { x: nearestSeat.x, z: nearestSeat.z }, seatedNeighbor, nearbyParticipant, isHoldingHands };
 
   function socialAction(action: string, extra: { targetId?: string | undefined; requestId?: string | undefined; rating?: number | undefined } = {}) {
     socketRef.current?.emit('social:action', { action, ...extra });
     setSocialStatus(action === 'offer_hand' ? 'Pedido de mão enviado.' : '');
+  }
+  function sitInChair(seat: { x: number; z: number }) {
+    // Encaixa o avatar imediatamente no assento; o servidor confirma a mesma posição.
+    const next = { x: seat.x, z: seat.z - 0.1, rotation: Math.PI };
+    positionRef.current = next;
+    setPosition(next);
+    setPose('sitting_chair');
+    heldKeys.current.clear();
+    socialAction('sit_chair');
   }
   function sendChat(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); const clean = message.trim(); if (!clean) return;
@@ -219,11 +228,11 @@ export function RoomExperience({ roomId }: { roomId: string }) {
       <div className={'connection-state ' + (connection === 'Conectado' ? 'is-connected' : '')}><span />{connection}</div></header>
     {error && <p className="inline-error" role="status">{error}</p>}
     <div className="experience-layout"><section className="cinema-stage"><div className="stage-label"><span>WENCINE / SALA 3D</span><span>{participants.filter((p) => p.connected).length} participante(s)</span></div>
-      <div className="canvas-wrap"><CinemaCanvas participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} nearbySeat={nearestSeatDistance <= 1.3 && pose === 'standing' ? nearestSeat : null} onSitChair={() => { heldKeys.current.clear(); setPose('sitting_chair'); socialAction('sit_chair'); }} onSelectParticipant={(id) => setSelectedParticipantId(id)} /></div>
+      <div className="canvas-wrap"><CinemaCanvas participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} nearbySeat={nearestSeatDistance <= 1.3 && pose === 'standing' ? nearestSeat : null} onSitChair={() => sitInChair(nearestSeat)} onSelectParticipant={(id) => setSelectedParticipantId(id)} /></div>
       <div className="movement-help">WASD / setas: andar · Espaço: pular · E: interagir · Shift: correr · Ctrl: agachar · Ctrl duas vezes: deitar</div>
       <div className="mobile-controls" aria-label="Controles de movimentação">
         <div className="mobile-joystick-zone"><div className="mobile-joystick" ref={joystickRef} onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); updateJoystick(event); }} onPointerMove={(event) => { if (event.buttons) updateJoystick(event); }} onPointerUp={() => setMobileVector({ x: 0, z: 0 })} onPointerCancel={() => setMobileVector({ x: 0, z: 0 })} onLostPointerCapture={() => setMobileVector({ x: 0, z: 0 })} role="application" aria-label="Joystick virtual: arraste para andar"><span className="mobile-joystick-knob" style={{ transform: `translate(${mobileVector.x * 35}px, ${mobileVector.z * 35}px)` }} /></div><span className="joystick-caption">MOVER</span></div>
-        <div className="mobile-action-buttons"><button onClick={() => { if (pose === 'sitting_chair' || pose === 'sitting' || pose === 'fallen' || pose === 'lying_back') { setPose('standing'); socialAction('stand'); } else socialAction('jump'); }}>{pose === 'sitting_chair' ? '↑ Levantar' : '↑ Pular'}</button><button onClick={() => { if (nearestSeatDistance <= 1.3 && pose === 'standing') { setPose('sitting_chair'); socialAction('sit_chair'); } else if (nearbyParticipant) socialAction('offer_hand', { targetId: nearbyParticipant.id }); else socialAction('throw_popcorn'); }}>{pose === 'standing' ? 'Interagir' : 'Ação'}</button></div></div></section>
+        <div className="mobile-action-buttons"><button onClick={() => { if (pose === 'sitting_chair' || pose === 'sitting' || pose === 'fallen' || pose === 'lying_back') { setPose('standing'); socialAction('stand'); } else socialAction('jump'); }}>{pose === 'sitting_chair' ? '↑ Levantar' : '↑ Pular'}</button><button onClick={() => { if (nearestSeatDistance <= 1.3 && pose === 'standing') sitInChair(nearestSeat); else if (nearbyParticipant) socialAction('offer_hand', { targetId: nearbyParticipant.id }); else socialAction('throw_popcorn'); }}>{pose === 'standing' ? 'Interagir' : 'Ação'}</button></div></div></section>
     <aside className="room-sidebar"><section className="side-panel"><div className="panel-heading"><h2>Seu avatar</h2><button className="text-button" onClick={() => setShowCustomize((value) => !value)}>{showCustomize ? 'Fechar' : 'Personalizar'}</button></div>
       <p className="muted-copy">A aparência é aplicada ao modelo 3D e compartilhada com a sala.</p>
       {showCustomize && <div className="customize-controls"><label>Cor <div className="color-options">{['#a78bfa','#f472b6','#60a5fa','#34d399','#fbbf24','#f8fafc','#f87171'].map((value) =>
