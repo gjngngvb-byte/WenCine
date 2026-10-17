@@ -119,7 +119,7 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
             if (actor.socketId) io.to(actor.socketId).emit('social:response', { accepted: false, message: 'Aproxime-se de uma cadeira para sentar.' });
             return;
           }
-          updateParticipantPosition(roomId, actor.id, { x: seat.x, z: seat.z - 0.08, rotation: Math.PI });
+          updateParticipantPosition(roomId, actor.id, { x: seat.x, z: seat.z - 0.1, rotation: Math.PI });
         }
         actor.pose = action === 'sit_chair' ? 'sitting_chair' : (action === 'sit' || action === 'sit_floor') ? 'sitting' : action === 'fall' ? 'fallen' : 'standing';
         notifyAction(undefined, action === 'sit_floor' ? 'sit' : action);
@@ -164,8 +164,9 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
       }
       if (action === 'offer_hand' || action === 'kiss' || action === 'peck' || action === 'handsy') {
         if (!target || !target.connected || target.id === actor.id || !closeEnough(actor, target)) return;
+        if (target.displayName === 'Bot de Teste') { if (action === 'offer_hand') { actor.holdingHandsWith = target.id; target.holdingHandsWith = actor.id; } notifyAction(target, action === 'offer_hand' ? 'hold_hands' : action); return; }
         const seatedTogether = actor.pose === 'sitting_chair' && target.pose === 'sitting_chair' && Math.hypot(actor.x - target.x, actor.z - target.z) <= 1.85;
-        if (seatedTogether && (action === 'handsy' || action === 'kiss' || action === 'peck')) { notifyAction(target, action); return; }
+        if ((target.displayName === 'Bot de Teste' || seatedTogether) && (action === 'handsy' || action === 'kiss' || action === 'peck')) { notifyAction(target, action); return; }
         const requestedAction = action === 'offer_hand' ? 'hold_hands' : action;
         const id = randomUUID();
         const request: PendingSocialRequest = { id, roomId, fromId: actor.id, toId: target.id, action: requestedAction, createdAt: Date.now() };
@@ -175,6 +176,7 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
       }
       if (action === 'share_popcorn' || action === 'slap' || action === 'throw_popcorn' || action === 'throw_tomato' || action === 'steal_popcorn') {
         if (action !== 'throw_popcorn' && action !== 'throw_tomato' && (!target || !target.connected || target.id === actor.id || !closeEnough(actor, target))) return;
+        if (target?.displayName === 'Bot de Teste') { notifyAction(target, action); return; }
         const seatedTogether = Boolean(target && actor.pose === 'sitting_chair' && target.pose === 'sitting_chair' && Math.hypot(actor.x - target.x, actor.z - target.z) <= 1.85);
         if (target && !seatedTogether && (action === 'slap' || action === 'steal_popcorn')) {
           if (actor.socketId) io.to(actor.socketId).emit('social:response', { accepted: false, message: 'Essa interação está disponível quando vocês estão sentados lado a lado.' });
@@ -182,6 +184,31 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
         }
         notifyAction(target, action);
       }
+    });
+    socket.on('bot:control', (payload: unknown) => {
+      const commandSchema = z.object({ command: z.enum(['spawn', 'remove', 'stand', 'sit_chair', 'sit_floor', 'walk']), x: z.number().finite().min(-8).max(8).optional(), z: z.number().finite().min(-1).max(9).optional() });
+      const parsedCommand = commandSchema.safeParse(payload);
+      const owner = findParticipantByToken(roomId, token)?.participant;
+      if (!parsedCommand.success || owner?.role !== 'owner') return;
+      const command = parsedCommand.data;
+      const room = findParticipantByToken(roomId, token)?.room;
+      if (!room) return;
+      let bot = [...room.participants.values()].find((person) => person.displayName === 'Bot de Teste' && person.color === '#60a5fa');
+      if (command.command === 'spawn') {
+        if (bot) return;
+        bot = { id: randomUUID(), token: randomUUID(), displayName: 'Bot de Teste', role: 'member', color: '#60a5fa', accessory: 'none', expression: 'happy', x: 0, z: 3.5, rotation: Math.PI, connected: true, joinedAt: Date.now(), pose: 'standing' };
+        room.participants.set(bot.id, bot); io.to(roomId).emit('participant:joined', safeParticipant(bot)); return;
+      }
+      if (!bot) return;
+      if (command.command === 'remove') { room.participants.delete(bot.id); io.to(roomId).emit('participant:left', { participantId: bot.id }); return; }
+      if (command.command === 'walk') { const x = command.x ?? bot.x, z = command.z ?? bot.z; bot.rotation = Math.atan2(x - bot.x, z - bot.z); bot.x = x; bot.z = z; bot.pose = 'standing'; }
+      else if (command.command === 'sit_chair') {
+        const seats = Array.from({ length: 5 }, (_, row) => Array.from({ length: 8 }, (_, col) => ({ x: (col - 3.5) * 1.25, z: 1 + row * 1.65 }))).flat();
+        const seat = seats.sort((a, b) => Math.hypot(a.x - bot!.x, a.z - bot!.z) - Math.hypot(b.x - bot!.x, b.z - bot!.z))[0]!;
+        bot.x = seat.x; bot.z = seat.z - 0.1; bot.rotation = Math.PI; bot.pose = 'sitting_chair';
+      } else if (command.command === 'sit_floor') bot.pose = 'sitting';
+      else bot.pose = 'standing';
+      io.to(roomId).emit('avatar:moved', safeParticipant(bot));
     });
     socket.on('chat:send', (payload: unknown) => {
       const now = Date.now();
