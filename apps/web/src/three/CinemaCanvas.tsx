@@ -1,7 +1,7 @@
 'use client';
 
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Html, OrbitControls } from '@react-three/drei';
+import { Html } from '@react-three/drei';
 import { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 
@@ -116,26 +116,26 @@ function Avatar({ person, local = false, socialEffects, allPeople, onSelectParti
     <mesh position={[0, 1.55, 0]}><sphereGeometry args={[0.035, 8, 8]} /><meshBasicMaterial color={local ? '#34d399' : '#c4b5fd'} /></mesh>
   </group>;
 }
-function CinemaScene({ participants, selfId, position, color, accessory, expression, pose, socialEffects, nearbySeat, onSitChair, onSelectParticipant, cameraMode }: {
+function CinemaScene({ participants, selfId, position, color, accessory, expression, pose, socialEffects, nearbySeat, onSitChair, onSelectParticipant, cameraMode, cameraYaw, cameraPitch }: {
   participants: Participant[]; selfId: string; position: { x: number; z: number; rotation: number };
   color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; socialEffects: SocialEffect[];
-  nearbySeat: { x: number; z: number } | null; onSitChair: ((seat: { x: number; z: number }) => void) | undefined; onSelectParticipant?: ((participantId: string) => void) | undefined; cameraMode: CameraMode;
+  nearbySeat: { x: number; z: number } | null; onSitChair: ((seat: { x: number; z: number }) => void) | undefined; onSelectParticipant?: ((participantId: string) => void) | undefined; cameraMode: CameraMode; cameraYaw: number; cameraPitch: number;
 }) {
   const { camera } = useThree();
   useFrame((_, delta) => {
-    const directionX = Math.sin(position.rotation);
-    const directionZ = Math.cos(position.rotation);
+    const lookDirection = new THREE.Vector3(Math.sin(cameraYaw), Math.tan(cameraPitch), -Math.cos(cameraYaw)).normalize();
     if (cameraMode === 'first') {
-      // Câmera nos olhos: acompanha a direção para a qual o avatar se vira ao andar.
       const eyeHeight = pose === 'sitting_chair' ? 1.12 : pose === 'sitting' ? 0.7 : pose === 'crouching' ? 0.92 : pose === 'lying_back' ? 0.35 : pose === 'fallen' ? 0.45 : 1.45;
-      camera.position.lerp(new THREE.Vector3(position.x + directionX * 0.04, eyeHeight, position.z + directionZ * 0.04), Math.min(1, delta * 14));
-      camera.lookAt(position.x + directionX * 4, eyeHeight, position.z + directionZ * 4);
+      camera.position.lerp(new THREE.Vector3(position.x, eyeHeight, position.z), Math.min(1, delta * 16));
+      camera.lookAt(position.x + lookDirection.x * 5, eyeHeight + lookDirection.y * 5, position.z + lookDirection.z * 5);
     } else {
-      // Terceira pessoa: segue atrás e um pouco acima, sempre acompanhando a rotação do avatar.
-      const targetX = THREE.MathUtils.clamp(position.x - directionX * 3.8, -9.1, 9.1);
-      const targetZ = THREE.MathUtils.clamp(position.z - directionZ * 3.8, -9.4, 9.1);
-      camera.position.lerp(new THREE.Vector3(targetX, 3.25, targetZ), Math.min(1, delta * 5));
-      camera.lookAt(position.x + directionX * 0.25, pose === 'sitting_chair' ? 0.9 : 1.15, position.z + directionZ * 0.25);
+      // A órbita depende apenas do mouse. O movimento lateral não reposiciona a câmera atrás do personagem.
+      const distance = 4.1;
+      const targetX = THREE.MathUtils.clamp(position.x - Math.sin(cameraYaw) * distance, -9.1, 9.1);
+      const targetZ = THREE.MathUtils.clamp(position.z + Math.cos(cameraYaw) * distance, -9.4, 9.1);
+      const targetY = 2.8 + Math.sin(cameraPitch) * 2.0;
+      camera.position.lerp(new THREE.Vector3(targetX, targetY, targetZ), Math.min(1, delta * 8));
+      camera.lookAt(position.x, pose === 'sitting_chair' ? 0.9 : 1.1, position.z);
     }
   });
   const localPerson: Participant = { id: selfId || 'local', displayName: 'Você', color, accessory, expression, ...position, connected: true, pose };
@@ -162,7 +162,6 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
       const thrower = participants.find((person) => person.id === effect.actorId) ?? (effect.actorId === selfId ? localPerson : undefined);
       return thrower ? <ThrownSnack key={effect.id} effect={effect} x={thrower.x} z={thrower.z} /> : null;
     })}
-    <OrbitControls enabled={false} />
   </>;
 }
 function ThrownSnack({ effect, x, z }: { effect: SocialEffect; x: number; z: number }) {
@@ -181,12 +180,12 @@ function ThrownSnack({ effect, x, z }: { effect: SocialEffect; x: number; z: num
     <meshStandardMaterial color={effect.action === 'throw_tomato' ? '#ef4444' : '#fbbf24'} roughness={0.55} />
   </mesh>;
 }
-export function CinemaCanvas({ participants, selfId, position, color, accessory, expression, pose, socialEffects, nearbySeat, onSitChair, onSelectParticipant, cameraMode }: {
+export function CinemaCanvas({ participants, selfId, position, color, accessory, expression, pose, socialEffects, nearbySeat, onSitChair, onSelectParticipant, cameraMode, cameraYaw, cameraPitch }: {
   participants: Participant[]; selfId: string; position: { x: number; z: number; rotation: number };
   color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; socialEffects: SocialEffect[];
-  nearbySeat: { x: number; z: number } | null; onSitChair: ((seat: { x: number; z: number }) => void) | undefined; onSelectParticipant?: ((participantId: string) => void) | undefined; cameraMode: CameraMode;
+  nearbySeat: { x: number; z: number } | null; onSitChair: ((seat: { x: number; z: number }) => void) | undefined; onSelectParticipant?: ((participantId: string) => void) | undefined; cameraMode: CameraMode; cameraYaw: number; cameraPitch: number;
 }) {
   return <Canvas camera={{ position: [0, 5.5, 10], fov: 54 }} dpr={[1, 1.35]} shadows fallback={<p>Este dispositivo não consegue renderizar a cena 3D.</p>}>
-    <CinemaScene participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} nearbySeat={nearbySeat} onSitChair={onSitChair} onSelectParticipant={onSelectParticipant} cameraMode={cameraMode} />
+    <CinemaScene participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} nearbySeat={nearbySeat} onSitChair={onSitChair} onSelectParticipant={onSelectParticipant} cameraMode={cameraMode} cameraYaw={cameraYaw} cameraPitch={cameraPitch} />
   </Canvas>;
 }
