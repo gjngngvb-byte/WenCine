@@ -112,12 +112,35 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
       if (action === 'lie_back') { actor.pose = 'lying_back'; notifyAction(undefined, action); return; }
       if (action === 'sit' || action === 'sit_floor' || action === 'sit_chair' || action === 'stand' || action === 'fall') {
         if (action === 'stand' && actor.pose === 'sitting_chair') {
-          // A cadeira fica atrás do personagem; sair pelo lado da tela evita continuar preso no assento.
-          updateParticipantPosition(roomId, actor.id, {
-            x: actor.x,
-            z: actor.z - 0.95,
-            rotation: Math.PI,
-          });
+          // Tenta sair pela frente primeiro, depois pelas diagonais/laterais.
+          // Nunca escolhe um ponto dentro de outra cadeira, fora da sala ou sobre outro jogador.
+          const seats = Array.from({ length: 5 }, (_, row) =>
+            Array.from({ length: 8 }, (_, col) => ({ x: (col - 3.5) * 1.25, z: 1 + row * 1.65 }))).flat();
+          const candidates = [
+            { x: actor.x, z: actor.z - 1.05 },
+            { x: actor.x - 0.82, z: actor.z - 0.82 },
+            { x: actor.x + 0.82, z: actor.z - 0.82 },
+            { x: actor.x - 0.95, z: actor.z },
+            { x: actor.x + 0.95, z: actor.z },
+            { x: actor.x, z: actor.z + 1.05 },
+            { x: actor.x - 0.82, z: actor.z + 0.82 },
+            { x: actor.x + 0.82, z: actor.z + 0.82 },
+          ];
+          const safeSpot = candidates.find((spot) =>
+            spot.x >= -9.05 && spot.x <= 9.05 && spot.z >= -9.35 && spot.z <= 9.2 &&
+            !seats.some((seat) => Math.abs(spot.x - seat.x) < 0.48 && Math.abs(spot.z - seat.z) < 0.48) &&
+            ![...found.room.participants.values()].some((person) =>
+              person.id !== actor.id && person.connected && Math.hypot(spot.x - person.x, spot.z - person.z) < 0.7));
+          if (safeSpot) {
+            updateParticipantPosition(roomId, actor.id, {
+              x: safeSpot.x,
+              z: safeSpot.z,
+              rotation: Math.PI,
+            });
+          } else {
+            socket.emit('social:response', { accepted: false, message: 'Não há espaço livre para levantar. Tente novamente.' });
+            return;
+          }
         }
         if (action === 'sit_chair') {
           const seats = Array.from({ length: 5 }, (_, row) =>
