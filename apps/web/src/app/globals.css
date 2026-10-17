@@ -175,5 +175,6 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #
   .mobile-action-buttons button { min-height: 3.15rem; border-radius: 1rem; border: 1px solid #d8c7ff88; background: linear-gradient(145deg,#a78bfa,#6941b6); color: #fff; font-size: .84rem; font-weight: 850; box-shadow: 0 4px 14px #0005; touch-action: manipulation; }
   .mobile-action-buttons button:active { transform: scale(.96); filter: brightness(1.15); }
   .movement-help { display: none; }
-  .canvas-wrap { touch-action: pan-x pan-y; }
+  /* Mantém os gestos de câmera sob controle do canvas 3D no celular. */
+  .canvas-wrap { touch-action: none; }
 }
