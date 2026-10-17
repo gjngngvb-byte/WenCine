@@ -119,7 +119,7 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
             if (actor.socketId) io.to(actor.socketId).emit('social:response', { accepted: false, message: 'Aproxime-se de uma cadeira para sentar.' });
             return;
           }
-          updateParticipantPosition(roomId, actor.id, { x: seat.x, z: seat.z, rotation: Math.PI });
+          updateParticipantPosition(roomId, actor.id, { x: seat.x, z: seat.z - 0.1, rotation: Math.PI });
         }
         actor.pose = action === 'sit_chair' ? 'sitting_chair' : (action === 'sit' || action === 'sit_floor') ? 'sitting' : action === 'fall' ? 'fallen' : 'standing';
         notifyAction(undefined, action === 'sit_floor' ? 'sit' : action);
@@ -205,7 +205,7 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
       else if (command.command === 'sit_chair') {
         const seats = Array.from({ length: 5 }, (_, row) => Array.from({ length: 8 }, (_, col) => ({ x: (col - 3.5) * 1.25, z: 1 + row * 1.65 }))).flat();
         const seat = seats.sort((a, b) => Math.hypot(a.x - bot!.x, a.z - bot!.z) - Math.hypot(b.x - bot!.x, b.z - bot!.z))[0]!;
-        bot.x = seat.x; bot.z = seat.z; bot.rotation = Math.PI; bot.pose = 'sitting_chair';
+        bot.x = seat.x; bot.z = seat.z - 0.1; bot.rotation = Math.PI; bot.pose = 'sitting_chair';
       } else if (command.command === 'sit_floor') bot.pose = 'sitting';
       else bot.pose = 'standing';
       io.to(roomId).emit('avatar:moved', safeParticipant(bot));
