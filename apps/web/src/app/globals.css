@@ -144,3 +144,20 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #
 .friend-interaction-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; }
 .friend-interaction-actions button { min-height: 2.5rem; border: 1px solid #a78bfa55; border-radius: .55rem; padding: .45rem .55rem; background: #8b5cf61a; color: #f3edff; font-size: .76rem; font-weight: 650; cursor: pointer; }
 .friend-interaction-actions button:hover { background: #8b5cf644; border-color: #c4b5fd; }
+
+/* Controles móveis com ações contextuais, inspirados em jogos mobile */
+.mobile-controls { display: none; }
+.mobile-action-buttons { display: none; }
+.test-bot-panel { display: grid; gap: .55rem; padding: .8rem; border: 1px solid #60a5fa66; border-radius: .8rem; background: linear-gradient(145deg,#17253b,#171522); }
+.test-bot-panel h3 { margin: 0; font-size: .9rem; }
+.bot-control-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .4rem; }
+.bot-control-grid button, .mobile-action-buttons button { min-height: 2.75rem; padding: .55rem; border: 1px solid #77639b; border-radius: .7rem; background: linear-gradient(145deg,#34264b,#211b30); color: #f4edff; font-size: .76rem; font-weight: 750; touch-action: manipulation; }
+.bot-control-grid button:active, .mobile-action-buttons button:active { transform: scale(.97); background: #62488d; }
+@media (max-width: 600px) {
+ .canvas-wrap { touch-action: none; }
+ .mobile-controls { display: grid; grid-template-columns: 1fr; gap: .4rem; padding: .5rem; background: linear-gradient(180deg,#171522,#100f19); }
+ .mobile-controls > button, .mobile-controls div button { width: 3.2rem; height: 3.2rem; border-radius: 50%; font-size: 1.15rem; box-shadow: 0 .2rem .7rem #0005; }
+ .mobile-action-buttons { display: flex; justify-content: center; gap: .55rem; padding: .2rem .5rem .8rem; }
+ .mobile-action-buttons button { flex: 1; min-height: 3rem; border-radius: 999px; background: linear-gradient(135deg,#bba4ff,#8057d8); color: #171124; font-size: .82rem; }
+ .movement-help { font-size: .65rem; }
+}
