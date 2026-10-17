@@ -76,7 +76,7 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
         const intersectsChair = seats.some((seat) =>
           Math.abs(x - seat.x) < 0.60 && Math.abs(z - seat.z) < 0.60);
         const intersectsPerson = [...(findParticipantByToken(roomId, token)?.room.participants.values() ?? [])].some((person) =>
-          person.id !== participantId && person.connected && Math.hypot(x - person.x, z - person.z) < 0.62);
+          person.id !== participantId && person.id !== current.holdingHandsWith && person.connected && Math.hypot(x - person.x, z - person.z) < 0.62);
         if (current.pose === 'sitting_chair' || intersectsChair || intersectsPerson) {
           if (color) current.color = color;
           if (accessory) current.accessory = accessory;
