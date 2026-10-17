@@ -139,8 +139,8 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
           // nem outros avatares.
           const preferred = { x: actor.x, z: actor.z - 0.95 };
           const candidates = [preferred];
-          for (let x = -7.75; x <= 7.75; x += 0.25) {
-            for (let z = -0.75; z <= 8.75; z += 0.25) {
+          for (let x = -8.75; x <= 8.75; x += 0.25) {
+            for (let z = -9; z <= 9; z += 0.25) {
               candidates.push({ x: Number(x.toFixed(2)), z: Number(z.toFixed(2)) });
             }
           }
@@ -148,7 +148,7 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
             person.id !== actor.id && person.connected);
           const safeSpot = candidates
             .filter((spot) =>
-              spot.x >= -8 && spot.x <= 8 && spot.z >= -1 && spot.z <= 9 &&
+              spot.x >= -9.05 && spot.x <= 9.05 && spot.z >= -9.35 && spot.z <= 9.2 &&
               !seats.some((seat) => Math.abs(spot.x - seat.x) < 0.60 && Math.abs(spot.z - seat.z) < 0.60) &&
               !otherPeople.some((person) => Math.hypot(spot.x - person.x, spot.z - person.z) < 0.62))
             .sort((a, b) => Math.hypot(a.x - preferred.x, a.z - preferred.z) -
@@ -249,7 +249,7 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
       }
     });
     socket.on('bot:control', (payload: unknown) => {
-      const commandSchema = z.object({ command: z.enum(['spawn', 'remove', 'stand', 'sit_chair', 'sit_floor', 'walk']), x: z.number().finite().min(-8).max(8).optional(), z: z.number().finite().min(-1).max(9).optional() });
+      const commandSchema = z.object({ command: z.enum(['spawn', 'remove', 'stand', 'sit_chair', 'sit_floor', 'walk']), x: z.number().finite().min(-9.05).max(9.05).optional(), z: z.number().finite().min(-9.35).max(9.2).optional() });
       const parsedCommand = commandSchema.safeParse(payload);
       const owner = findParticipantByToken(roomId, token)?.participant;
       if (!parsedCommand.success || owner?.role !== 'owner') return;
