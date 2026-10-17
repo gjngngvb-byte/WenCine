@@ -58,7 +58,7 @@ function Avatar({ person, local = false, socialEffects, allPeople, onSelectParti
     const targetRotation = partner ? Math.atan2(contactDx, contactDz) : person.rotation;
     group.current.rotation.y = THREE.MathUtils.damp(group.current.rotation.y, targetRotation, delta, isContactAnimation ? 7 : 10);
     group.current.rotation.z = THREE.MathUtils.damp(group.current.rotation.z, fallen ? -1.12 : 0, delta, 7);
-    group.current.rotation.x = THREE.MathUtils.damp(group.current.rotation.x, lyingBack ? -Math.PI / 2 : partner ? (activeEffect?.action === 'kiss' ? -0.08 + Math.sin(performance.now() * 0.004) * 0.02 : -0.035 * Math.sin(age * Math.PI)) : 0, delta, 8);
+    group.current.rotation.x = THREE.MathUtils.damp(group.current.rotation.x, lyingBack ? -Math.PI / 2 : person.pose === 'sitting_chair' ? -0.06 : partner ? (activeEffect?.action === 'kiss' ? -0.08 + Math.sin(performance.now() * 0.004) * 0.02 : -0.035 * Math.sin(age * Math.PI)) : 0, delta, 8);
     group.current.scale.y = THREE.MathUtils.damp(group.current.scale.y, crouching ? 0.68 : 1, delta, 12);
     const moving = !sitting && !fallen && !lyingBack && Math.hypot(person.x - lastPosition.current.x, person.z - lastPosition.current.z) > 0.002;
     lastPosition.current = { x: person.x, z: person.z };
