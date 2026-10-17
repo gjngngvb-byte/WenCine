@@ -192,7 +192,8 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     .sort((a, b) => a.distance - b.distance)[0]?.person;
   const isHoldingHands = participants.some((person) => person.id === selfId && person.holdingHandsWith);
   const seats = Array.from({ length: 5 }, (_, row) => Array.from({ length: 8 }, (_, col) => ({ x: (col - 3.5) * 1.25, z: 1 + row * 1.65 }))).flat();
-  const nearestSeat = seats.map((seat) => ({ ...seat, distance: Math.hypot(position.x - seat.x, position.z - seat.z) })).sort((a, b) => a.distance - b.distance)[0]!;
+  const availableSeats = seats.filter((seat) => !participants.some((person) => person.id !== selfId && person.connected && person.pose === 'sitting_chair' && Math.hypot(person.x - seat.x, person.z - seat.z) < 0.7));
+  const nearestSeat = (availableSeats.length ? availableSeats : seats).map((seat) => ({ ...seat, distance: Math.hypot(position.x - seat.x, position.z - seat.z) })).sort((a, b) => a.distance - b.distance)[0]!;
   const nearestSeatDistance = nearestSeat.distance;
   const seatedNeighbor = pose === 'sitting_chair' && nearbyParticipant?.pose === 'sitting_chair' &&
     Math.hypot(nearbyParticipant.x - position.x, nearbyParticipant.z - position.z) <= 1.85 ? nearbyParticipant : undefined;
@@ -203,18 +204,18 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     Math.hypot(selectedParticipant.x - position.x, selectedParticipant.z - position.z) <= 1.85 ? selectedParticipant : undefined;
   gameplayRef.current = { pose, nearestSeatDistance, nearestSeat: { x: nearestSeat.x, z: nearestSeat.z }, seatedNeighbor, nearbyParticipant, isHoldingHands };
 
-  function socialAction(action: string, extra: { targetId?: string | undefined; requestId?: string | undefined; rating?: number | undefined } = {}) {
+  function socialAction(action: string, extra: { targetId?: string | undefined; requestId?: string | undefined; rating?: number | undefined; seatX?: number | undefined; seatZ?: number | undefined } = {}) {
     socketRef.current?.emit('social:action', { action, ...extra });
     setSocialStatus(action === 'offer_hand' ? 'Pedido de mão enviado.' : '');
   }
   function sitInChair(seat: { x: number; z: number }) {
     // Encaixa o avatar imediatamente no assento; o servidor confirma a mesma posição.
-    const next = { x: seat.x, z: seat.z - 0.1, rotation: Math.PI };
+    const next = { x: seat.x, z: seat.z, rotation: Math.PI };
     positionRef.current = next;
     setPosition(next);
     setPose('sitting_chair');
     heldKeys.current.clear();
-    socialAction('sit_chair');
+    socialAction('sit_chair', { seatX: seat.x, seatZ: seat.z });
   }
   function sendChat(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); const clean = message.trim(); if (!clean) return;

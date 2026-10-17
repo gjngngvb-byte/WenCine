@@ -46,19 +46,25 @@ function Avatar({ person, local = false, socialEffects, allPeople, onSelectParti
     const contactDx = partner ? partner.x - person.x : 0;
     const contactDz = partner ? partner.z - person.z : 0;
     const contactLength = Math.hypot(contactDx, contactDz) || 1;
-    const targetX = person.x + (partner ? contactDx / contactLength * 0.34 : 0);
-    const targetZ = person.z + (partner ? contactDz / contactLength * 0.34 : 0);
+    const targetX = person.pose === 'sitting_chair' ? person.x : person.x + (partner ? contactDx / contactLength * 0.34 : 0);
+    const targetZ = person.pose === 'sitting_chair' ? person.z : person.z + (partner ? contactDz / contactLength * 0.34 : 0);
     const sitting = person.pose === 'sitting' || person.pose === 'sitting_chair';
     const fallen = person.pose === 'fallen';
     const lyingBack = person.pose === 'lying_back';
     const crouching = person.pose === 'crouching';
     const targetY = person.pose === 'sitting_chair' ? 0.14 : person.pose === 'sitting' ? -0.22 : fallen || lyingBack ? -0.08 : 0;
     const jumpLift = activeEffect?.action === 'jump' && age < 1 ? Math.sin(Math.min(1, age) * Math.PI) * 1.05 : 0;
-    group.current.position.lerp(new THREE.Vector3(targetX, targetY + jumpLift, targetZ), Math.min(1, delta * (isContactAnimation ? 7 : 9)));
-    const targetRotation = partner ? Math.atan2(contactDx, contactDz) : person.rotation;
-    group.current.rotation.y = THREE.MathUtils.damp(group.current.rotation.y, targetRotation, delta, isContactAnimation ? 7 : 10);
+    if (person.pose === 'sitting_chair') {
+      // Sentar é um encaixe exato, não uma aproximação animada a partir do ponto do clique.
+      group.current.position.set(person.x, targetY, person.z);
+      group.current.rotation.y = Math.PI;
+    } else {
+      group.current.position.lerp(new THREE.Vector3(targetX, targetY + jumpLift, targetZ), Math.min(1, delta * (isContactAnimation ? 7 : 9)));
+      const targetRotation = partner ? Math.atan2(contactDx, contactDz) : person.rotation;
+      group.current.rotation.y = THREE.MathUtils.damp(group.current.rotation.y, targetRotation, delta, isContactAnimation ? 7 : 10);
+    }
     group.current.rotation.z = THREE.MathUtils.damp(group.current.rotation.z, fallen ? -1.12 : 0, delta, 7);
-    group.current.rotation.x = THREE.MathUtils.damp(group.current.rotation.x, lyingBack ? -Math.PI / 2 : person.pose === 'sitting_chair' ? -0.06 : partner ? (activeEffect?.action === 'kiss' ? -0.08 + Math.sin(performance.now() * 0.004) * 0.02 : -0.035 * Math.sin(age * Math.PI)) : 0, delta, 8);
+    group.current.rotation.x = person.pose === 'sitting_chair' ? 0 : THREE.MathUtils.damp(group.current.rotation.x, lyingBack ? -Math.PI / 2 : partner ? (activeEffect?.action === 'kiss' ? -0.08 + Math.sin(performance.now() * 0.004) * 0.02 : -0.035 * Math.sin(age * Math.PI)) : 0, delta, 8);
     group.current.scale.y = THREE.MathUtils.damp(group.current.scale.y, crouching ? 0.68 : 1, delta, 12);
     const moving = !sitting && !fallen && !lyingBack && Math.hypot(person.x - lastPosition.current.x, person.z - lastPosition.current.z) > 0.002;
     lastPosition.current = { x: person.x, z: person.z };

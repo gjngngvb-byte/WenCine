@@ -16,6 +16,8 @@ const SocialSchema = z.object({
   targetId: z.string().uuid().optional(),
   requestId: z.string().uuid().optional(),
   rating: z.number().int().min(1).max(5).optional(),
+  seatX: z.number().finite().optional(),
+  seatZ: z.number().finite().optional(),
 });
 type PendingSocialRequest = { id: string; roomId: string; fromId: string; toId: string; action: 'hold_hands' | 'kiss' | 'peck' | 'handsy'; createdAt: number };
 const pendingSocialRequests = new Map<string, PendingSocialRequest>();
@@ -91,7 +93,7 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
     socket.on('social:action', (payload: unknown) => {
       const parsed = SocialSchema.safeParse(payload);
       if (!parsed.success) return;
-      const { action, targetId, requestId, rating } = parsed.data;
+      const { action, targetId, requestId, rating, seatX, seatZ } = parsed.data;
       const actor = findParticipantByToken(roomId, token)?.participant;
       if (!actor) return;
       const target = targetId ? found.room.participants.get(targetId) : undefined;
@@ -114,12 +116,18 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
             Array.from({ length: 8 }, (_, col) => ({ x: (col - 3.5) * 1.25, z: 1 + row * 1.65 }))).flat();
           const availableSeats = seats.filter((seat) => ![...found.room.participants.values()].some((person) =>
             person.id !== actor.id && person.pose === 'sitting_chair' && Math.hypot(person.x - seat.x, person.z - seat.z) < 0.7));
-          const seat = availableSeats.sort((a, b) => Math.hypot(a.x - actor.x, a.z - actor.z) - Math.hypot(b.x - actor.x, b.z - actor.z))[0];
-          if (!seat || !closeEnough(actor, seat, 1.3)) {
-            if (actor.socketId) io.to(actor.socketId).emit('social:response', { accepted: false, message: 'Aproxime-se de uma cadeira para sentar.' });
+          const requestedSeat = seatX === undefined || seatZ === undefined
+            ? undefined
+            : seats.find((seat) => Math.abs(seat.x - seatX) < 0.001 && Math.abs(seat.z - seatZ) < 0.001);
+          const seat = requestedSeat
+            ? availableSeats.find((candidate) => candidate.x === requestedSeat.x && candidate.z === requestedSeat.z)
+            : availableSeats.sort((a, b) => Math.hypot(a.x - actor.x, a.z - actor.z) - Math.hypot(b.x - actor.x, b.z - actor.z))[0];
+          if (!seat || !closeEnough(actor, seat, 1.8)) {
+            if (actor.socketId) io.to(actor.socketId).emit('social:response', { accepted: false, message: 'Aproxime-se de uma cadeira livre para sentar.' });
             return;
           }
-          updateParticipantPosition(roomId, actor.id, { x: seat.x, z: seat.z - 0.1, rotation: Math.PI });
+          // A posição do avatar usa o centro geométrico exato do assento, sem deslocamento em Z.
+          updateParticipantPosition(roomId, actor.id, { x: seat.x, z: seat.z, rotation: Math.PI });
         }
         actor.pose = action === 'sit_chair' ? 'sitting_chair' : (action === 'sit' || action === 'sit_floor') ? 'sitting' : action === 'fall' ? 'fallen' : 'standing';
         notifyAction(undefined, action === 'sit_floor' ? 'sit' : action);
@@ -205,7 +213,7 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
       else if (command.command === 'sit_chair') {
         const seats = Array.from({ length: 5 }, (_, row) => Array.from({ length: 8 }, (_, col) => ({ x: (col - 3.5) * 1.25, z: 1 + row * 1.65 }))).flat();
         const seat = seats.sort((a, b) => Math.hypot(a.x - bot!.x, a.z - bot!.z) - Math.hypot(b.x - bot!.x, b.z - bot!.z))[0]!;
-        bot.x = seat.x; bot.z = seat.z - 0.1; bot.rotation = Math.PI; bot.pose = 'sitting_chair';
+        bot.x = seat.x; bot.z = seat.z; bot.rotation = Math.PI; bot.pose = 'sitting_chair';
       } else if (command.command === 'sit_floor') bot.pose = 'sitting';
       else bot.pose = 'standing';
       io.to(roomId).emit('avatar:moved', safeParticipant(bot));
