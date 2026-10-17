@@ -138,7 +138,8 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
       const targetZ = THREE.MathUtils.clamp(position.z + Math.cos(cameraYaw) * horizontal, -9.4, 9.1);
       const targetY = THREE.MathUtils.clamp(focus.y - Math.sin(cameraPitch) * cameraDistance, 0.12, 7.2);
       camera.position.lerp(new THREE.Vector3(targetX, targetY, targetZ), Math.min(1, delta * 8));
-      camera.lookAt(focus);
+      const viewDirection = new THREE.Vector3(Math.sin(cameraYaw) * Math.cos(cameraPitch), Math.sin(cameraPitch), -Math.cos(cameraYaw) * Math.cos(cameraPitch));
+      camera.lookAt(focus.clone().add(viewDirection.multiplyScalar(5)));
     }
   });
   const localPerson: Participant = { id: selfId || 'local', displayName: 'Você', color, accessory, expression, ...position, connected: true, pose };
