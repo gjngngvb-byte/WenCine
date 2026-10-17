@@ -7,7 +7,7 @@ import { CinemaCanvas } from '../../../three/CinemaCanvas';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL ?? API;
-type Participant = { id: string; displayName: string; role: 'owner' | 'member'; color: string; accessory: string; expression: string; x: number; z: number; rotation: number; connected: boolean; pose?: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; holdingHandsWith?: string };
+type Participant = { id: string; displayName: string; role: 'owner' | 'member'; color: string; accessory: string; expression: string; x: number; z: number; rotation: number; connected: boolean; pose?: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; holdingHandsWith?: string; chairReturnX?: number; chairReturnZ?: number; chairReturnRotation?: number };
 type Room = { id: string; name: string; visibility: 'public' | 'private'; maxParticipants: number; participantCount: number; participants?: Participant[] };
 type ChatMessage = { id: string; participantId: string; displayName: string; role: string; message: string; sentAt: number };
 
@@ -84,7 +84,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     socket.on('social:effect', (effect: { id: string; action: string; actorId: string; targetId?: string; sentAt: number }) => {
       setSocialEffects((current) => [...current.slice(-24), effect]);
       const labels: Record<string, string> = {
-        sit: 'sentou no chão', sit_chair: 'sentou na cadeira', stand: 'levantou', fall: 'caiu', hold_hands: 'está de mãos dadas',
+        sit: 'sentou no chão', sit_chair: 'sentou na cadeira', stand: 'levantou', fall: 'caiu', hold_hands: 'está de mãos dadas', hug: 'abraçou',
         release_hand: 'soltou as mãos', share_popcorn: 'dividiu a pipoca', kiss: 'deu um beijo',
         peck: 'deu um selinho', slap: 'deu um tapinha', throw_popcorn: 'jogou pipoca na tela',
         throw_tomato: 'jogou um tomate na tela', steal_popcorn: 'roubou pipoca', handsy: 'fez carinho',
@@ -170,8 +170,8 @@ export function RoomExperience({ roomId }: { roomId: string }) {
         if (distance <= 0.075) {
           pendingSeatRef.current = null;
           heldKeys.current.clear();
-          setPose('sitting_chair');
-          socialAction('sit_chair', { seatX: pendingSeat.x, seatZ: pendingSeat.z });
+          // A pose só muda quando o servidor confirma o assento e sincroniza a posição.
+          socialAction('sit_chair', { seatX: pendingSeat.x, seatZ: pendingSeat.z, returnX: current.x, returnZ: current.z, returnRotation: current.rotation });
         } else {
           const step = Math.min(distance, 2.8 * elapsed);
           const beforeX = current.x;
@@ -227,8 +227,11 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   const selectedSelf = selectedParticipantId === selfId;
   const isOwner = participants.some((person) => person.id === selfId && person.role === 'owner');
   const selectedParticipant = participants.find((person) => person.id === selectedParticipantId && person.id !== selfId && person.connected);
-  const selectedSeatedNeighbor = pose === 'sitting_chair' && selectedParticipant?.pose === 'sitting_chair' &&
-    Math.hypot(selectedParticipant.x - position.x, selectedParticipant.z - position.z) <= 1.85 ? selectedParticipant : undefined;
+  const selectedParticipantDistance = selectedParticipant ? Math.hypot(selectedParticipant.x - position.x, selectedParticipant.z - position.z) : Infinity;
+  const selectedParticipantNearby = selectedParticipantDistance <= 2.4;
+  const selfParticipant = participants.find((person) => person.id === selfId);
+  const selectedHoldingHands = Boolean(selectedParticipant && selfParticipant?.holdingHandsWith === selectedParticipant.id);
+  const selectedSeatedNeighbor = pose === 'sitting_chair' && selectedParticipant?.pose === 'sitting_chair' && selectedParticipantDistance <= 1.85 ? selectedParticipant : undefined;
   gameplayRef.current = { pose, nearestSeatDistance, nearestSeat: { x: nearestSeat.x, z: nearestSeat.z }, seatedNeighbor, nearbyParticipant, isHoldingHands };
 
   function performInteraction() {
@@ -250,7 +253,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     if (pose === 'standing' || pose === 'crouching' || pose === 'fallen') { socialAction('lie_back'); return; }
     setSocialStatus('Levante primeiro para poder deitar.');
   }
-  function socialAction(action: string, extra: { targetId?: string | undefined; requestId?: string | undefined; rating?: number | undefined; seatX?: number | undefined; seatZ?: number | undefined } = {}) {
+  function socialAction(action: string, extra: { targetId?: string | undefined; requestId?: string | undefined; rating?: number | undefined; seatX?: number | undefined; seatZ?: number | undefined; returnX?: number | undefined; returnZ?: number | undefined; returnRotation?: number | undefined } = {}) {
     socketRef.current?.emit('social:action', { action, ...extra });
     setSocialStatus(action === 'offer_hand' ? 'Pedido de mão enviado.' : '');
   }
@@ -301,11 +304,11 @@ export function RoomExperience({ roomId }: { roomId: string }) {
         <div className="game-controls-help"><p><kbd>W A S D</kbd> / setas <span>Andar</span></p><p><kbd>Espaço</kbd><span>Pular</span></p><p><kbd>E</kbd><span>Interagir</span></p><p><kbd>Shift</kbd><span>Correr</span></p><p><kbd>Ctrl</kbd><span>Agachar</span></p><p><kbd>Ctrl × 2</kbd><span>Deitar de costas</span></p></div>
         {selectedSelf && pose === 'sitting_chair' && <div className="friend-interactions" role="group" aria-label="Ações do seu personagem"><div className="panel-heading"><h3>Você está sentado</h3><button className="text-button" onClick={() => setSelectedParticipantId(null)}>Fechar</button></div><button onClick={() => { standUp(); setSelectedParticipantId(null); }}>Levantar da cadeira</button></div>}
         {isOwner && <div className="test-bot-panel"><div className="panel-heading"><h3>🤖 Bot de teste</h3><span className="chat-live">DONO</span></div><p className="muted-copy">Adicione um personagem de teste sem abrir outra conta.</p><div className="bot-control-grid"><button onClick={() => socketRef.current?.emit('bot:control', { command: 'spawn' })}>Adicionar bot</button><button onClick={() => socketRef.current?.emit('bot:control', { command: 'remove' })}>Remover bot</button><button onClick={() => socketRef.current?.emit('bot:control', { command: 'stand' })}>Em pé</button><button onClick={() => socketRef.current?.emit('bot:control', { command: 'sit_chair' })}>Sentar</button><button onClick={() => socketRef.current?.emit('bot:control', { command: 'sit_floor' })}>No chão</button><button onClick={() => socketRef.current?.emit('bot:control', { command: 'walk', x: position.x + 1.5, z: position.z + 1 })}>Andar até perto</button></div></div>}
-        {selectedSeatedNeighbor && <div className="friend-interactions" role="group" aria-label={'Interações com ' + selectedSeatedNeighbor.displayName}><div className="panel-heading"><h3>Com {selectedSeatedNeighbor.displayName}</h3><button className="text-button" onClick={() => setSelectedParticipantId(null)}>Fechar</button></div><p className="muted-copy">Vocês estão sentados lado a lado. Escolha uma interação:</p><div className="friend-interaction-actions">{([['kiss','Roubar beijo'],['peck','Roubar selinho'],['steal_popcorn','Roubar pipoca'],['slap','Dar tapa'],['handsy','Fazer carinho'],['share_popcorn','Dividir pipoca']] as const).map(([action,label]) => <button key={action} onClick={() => socialAction(action, { targetId: selectedSeatedNeighbor.id })}>{label}</button>)}</div></div>}
+        {selectedParticipant && <div className="friend-interactions" role="group" aria-label={'Interações com ' + selectedParticipant.displayName}><div className="panel-heading"><h3>Com {selectedParticipant.displayName}</h3><button className="text-button" onClick={() => setSelectedParticipantId(null)}>Fechar</button></div><p className="muted-copy">{selectedParticipantNearby ? (selectedSeatedNeighbor ? 'Vocês estão sentados lado a lado.' : 'Escolha uma interação. Beijos, selinhos, abraços e mãos dadas são pedidos para a outra pessoa aceitar.') : 'Você está longe. Aproxime-se até 2,4 m para interagir.'}</p><div className="friend-interaction-actions"><button disabled={!selectedParticipantNearby || (isHoldingHands && !selectedHoldingHands)} onClick={() => socialAction(selectedHoldingHands ? 'release_hand' : 'offer_hand', { targetId: selectedParticipant.id })}>{selectedHoldingHands ? 'Soltar a mão' : isHoldingHands ? 'Solte a mão atual primeiro' : 'Segurar a mão'}</button><button disabled={!selectedParticipantNearby} onClick={() => socialAction('kiss', { targetId: selectedParticipant.id })}>{selectedSeatedNeighbor ? 'Roubar beijo' : 'Pedir beijo'}</button><button disabled={!selectedParticipantNearby} onClick={() => socialAction('peck', { targetId: selectedParticipant.id })}>{selectedSeatedNeighbor ? 'Roubar selinho' : 'Pedir selinho'}</button><button disabled={!selectedParticipantNearby} onClick={() => socialAction('hug', { targetId: selectedParticipant.id })}>Pedir abraço</button><button disabled={!selectedParticipantNearby} onClick={() => socialAction('handsy', { targetId: selectedParticipant.id })}>Fazer carinho</button><button disabled={!selectedParticipantNearby} onClick={() => socialAction('share_popcorn', { targetId: selectedParticipant.id })}>Dividir pipoca</button>{selectedSeatedNeighbor && <><button onClick={() => socialAction('steal_popcorn', { targetId: selectedParticipant.id })}>Roubar pipoca</button><button onClick={() => socialAction('slap', { targetId: selectedParticipant.id })}>Dar tapa</button></>}</div></div>}
         <p className="context-prompt" aria-live="polite">{isHoldingHands ? '🤝 Mãos dadas: pressione E para soltar' : nearestSeatDistance <= 1.3 && pose === 'standing' ? '🪑 Cadeira próxima: pressione E para sentar' : seatedNeighbor ? '🍿 Ao lado de ' + seatedNeighbor.displayName + ': E alterna dividir pipoca, carinho, beijo, selinho, roubo e tapa. Espaço levanta' : pose === 'sitting_chair' ? 'Pressione E para levantar' : pose === 'crouching' ? 'Agachado · Ctrl para levantar' : pose === 'lying_back' ? 'Deitado · E para levantar'  : nearbyParticipant ? 'Perto de ' + nearbyParticipant.displayName + ': E para oferecer a mão' : 'Aproxime-se de uma cadeira ou jogador. Pressione E para interagir.'}</p>
         
         {isHoldingHands && <p className="social-status">🤝 Mãos dadas · pressione E para levantar ou encerrar a interação.</p>}
-        {pendingRequest && <div className="social-request" role="status"><strong>{pendingRequest.fromName}</strong> quer {pendingRequest.action === 'hold_hands' ? 'segurar sua mão' : pendingRequest.action === 'kiss' ? 'te beijar' : pendingRequest.action === 'peck' ? 'te dar um selinho' : 'fazer carinho'}.
+        {pendingRequest && <div className="social-request" role="status"><strong>{pendingRequest.fromName}</strong> quer {pendingRequest.action === 'hold_hands' ? 'segurar sua mão' : pendingRequest.action === 'kiss' ? 'te beijar' : pendingRequest.action === 'peck' ? 'te dar um selinho' : pendingRequest.action === 'hug' ? 'te abraçar' : 'fazer carinho'}.
           <div><button onClick={() => { socialAction('accept_interaction', { requestId: pendingRequest.requestId }); setPendingRequest(null); }}>Aceitar</button><button onClick={() => { socialAction('decline_interaction', { requestId: pendingRequest.requestId }); setPendingRequest(null); }}>Recusar</button></div></div>}
         {socialStatus && <p className="social-status" aria-live="polite">{socialStatus}</p>}
         <div className="film-rating"><strong>Avaliar o filme</strong><div>{[1,2,3,4,5].map((value) => <button key={value} aria-label={value + ' estrelas'} className={filmRating >= value ? 'rated' : ''} onClick={() => { setFilmRating(value); socialAction('rate_film', { rating: value }); }}>★</button>)}</div>

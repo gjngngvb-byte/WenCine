@@ -29,7 +29,6 @@ function Avatar({ person, local = false, socialEffects, allPeople, onSelectParti
   const rightLeg = useRef<THREE.Group>(null);
   const bodyColor = useMemo(() => new THREE.Color(person.color || '#a78bfa'), [person.color]);
   const lastPosition = useRef({ x: person.x, z: person.z });
-  const previousPose = useRef(person.pose);
   const gait = useRef(0);
   useFrame((_, delta) => {
     if (!group.current) return;
@@ -39,10 +38,12 @@ function Avatar({ person, local = false, socialEffects, allPeople, onSelectParti
       const partnerId = effect.actorId === person.id ? effect.targetId : effect.actorId;
       const partner = allPeople.find((candidate) => candidate.id === partnerId);
       const heldKiss = effect.action === 'kiss' && person.pose === 'sitting_chair' && partner?.pose === 'sitting_chair' && partner && Math.hypot(partner.x - person.x, partner.z - person.z) <= 1.35;
-      return now - effect.sentAt < (effect.action === 'kiss' ? 2600 : effect.action === 'peck' ? 650 : 1150) || Boolean(heldKiss);
+      const duration = effect.action === 'kiss' ? 2600 : effect.action === 'peck' ? 650 : effect.action === 'hug' ? 1700 : 1150;
+      return now - effect.sentAt < duration || Boolean(heldKiss);
     });
-    const age = activeEffect ? Math.max(0, (now - activeEffect.sentAt) / (activeEffect.action === 'kiss' ? 2600 : activeEffect.action === 'peck' ? 650 : 1150)) : 1;
-    const isContactAnimation = Boolean(activeEffect && ['kiss', 'peck'].includes(activeEffect.action));
+    const effectDuration = activeEffect?.action === 'kiss' ? 2600 : activeEffect?.action === 'peck' ? 650 : activeEffect?.action === 'hug' ? 1700 : 1150;
+    const age = activeEffect ? Math.max(0, (now - activeEffect.sentAt) / effectDuration) : 1;
+    const isContactAnimation = Boolean(activeEffect && ['kiss', 'peck', 'hug'].includes(activeEffect.action));
     const partnerId = activeEffect?.actorId === person.id ? activeEffect.targetId : activeEffect?.targetId === person.id ? activeEffect.actorId : undefined;
     const partner = isContactAnimation ? allPeople.find((candidate) => candidate.id === partnerId) : undefined;
     const contactDx = partner ? partner.x - person.x : 0;
@@ -50,8 +51,9 @@ function Avatar({ person, local = false, socialEffects, allPeople, onSelectParti
     const contactLength = Math.hypot(contactDx, contactDz) || 1;
     // Sentado, o quadril fica um pouco acima do assento e ligeiramente à frente,
     // para não atravessar a almofada nem o encosto.
-    const targetX = person.pose === 'sitting_chair' ? person.x : person.x + (partner ? contactDx / contactLength * 0.34 : 0);
-    const targetZ = person.pose === 'sitting_chair' ? person.z - 0.16 : person.z + (partner ? contactDz / contactLength * 0.34 : 0);
+    const contactDistance = activeEffect?.action === 'hug' ? 0.24 : 0.34;
+    const targetX = person.pose === 'sitting_chair' ? person.x : person.x + (partner ? contactDx / contactLength * contactDistance : 0);
+    const targetZ = person.pose === 'sitting_chair' ? person.z - 0.16 : person.z + (partner ? contactDz / contactLength * contactDistance : 0);
     const sitting = person.pose === 'sitting' || person.pose === 'sitting_chair';
     const fallen = person.pose === 'fallen';
     const lyingBack = person.pose === 'lying_back';
@@ -60,15 +62,9 @@ function Avatar({ person, local = false, socialEffects, allPeople, onSelectParti
     const jumpLift = activeEffect?.action === 'jump' && age < 1 ? Math.sin(Math.min(1, age) * Math.PI) * 1.05 : 0;
     // Aproximação suave tanto ao sentar quanto ao levantar. A posição de rede continua autoritativa,
     // mas o modelo visual percorre o trajeto em vez de teletransportar.
-    const leavingChair = previousPose.current === 'sitting_chair' && person.pose !== 'sitting_chair';
-    previousPose.current = person.pose;
-    if (leavingChair) {
-      // Não anime o corpo em pé atravessando o encosto/assento. A posição segura vem
-      // confirmada pelo servidor e é aplicada no mesmo quadro da troca de pose.
-      group.current.position.set(targetX, targetY + jumpLift, targetZ);
-    } else {
-      group.current.position.lerp(new THREE.Vector3(targetX, targetY + jumpLift, targetZ), Math.min(1, delta * (isContactAnimation ? 7 : person.pose === 'sitting_chair' ? 4.5 : 8)));
-    }
+    // O servidor primeiro move o avatar ainda sentado para o ponto de retorno livre;
+    // só depois troca a pose. Assim a animação de levantar pode ser suave sem atravessar a cadeira.
+    group.current.position.lerp(new THREE.Vector3(targetX, targetY + jumpLift, targetZ), Math.min(1, delta * (isContactAnimation ? 7 : person.pose === 'sitting_chair' ? 4.5 : 8)));
     const targetRotation = person.pose === 'sitting_chair' ? Math.PI : partner ? Math.atan2(contactDx, contactDz) : person.rotation;
     group.current.rotation.y = THREE.MathUtils.damp(group.current.rotation.y, targetRotation, delta, isContactAnimation ? 7 : 7);
     group.current.rotation.z = THREE.MathUtils.damp(group.current.rotation.z, fallen ? -1.12 : 0, delta, 7);
@@ -78,14 +74,15 @@ function Avatar({ person, local = false, socialEffects, allPeople, onSelectParti
     lastPosition.current = { x: person.x, z: person.z };
     gait.current = THREE.MathUtils.damp(gait.current, moving ? 1 : 0, delta, 9);
     const swing = Math.sin(performance.now() * 0.012) * gait.current * 0.62;
-    const waving = activeEffect && ['slap', 'share_popcorn', 'steal_popcorn', 'hold_hands', 'kiss', 'peck', 'handsy', 'throw_popcorn', 'throw_tomato'].includes(activeEffect.action);
+    const holdingHands = Boolean(person.holdingHandsWith);
+    const waving = activeEffect && ['slap', 'share_popcorn', 'steal_popcorn', 'hold_hands', 'kiss', 'peck', 'hug', 'handsy', 'throw_popcorn', 'throw_tomato'].includes(activeEffect.action);
     if (leftArm.current) {
-      leftArm.current.rotation.x = sitting ? -0.5 : waving && activeEffect?.action === 'hold_hands' ? -0.7 : swing;
-      leftArm.current.rotation.z = waving && activeEffect?.action === 'share_popcorn' ? -0.45 : 0;
+      leftArm.current.rotation.x = sitting ? -0.5 : activeEffect?.action === 'hug' ? -Math.sin(age * Math.PI) * 1.25 : (holdingHands || (waving && activeEffect?.action === 'hold_hands')) ? -0.7 : swing;
+      leftArm.current.rotation.z = activeEffect?.action === 'hug' ? Math.sin(age * Math.PI) * 0.48 : waving && activeEffect?.action === 'share_popcorn' ? -0.45 : 0;
     }
     if (rightArm.current) {
-      rightArm.current.rotation.x = sitting ? -0.5 : waving ? -Math.sin(age * Math.PI) * 1.45 : -swing;
-      rightArm.current.rotation.z = waving && activeEffect && ['slap', 'throw_popcorn', 'throw_tomato'].includes(activeEffect.action) ? -Math.sin(age * Math.PI) * 0.9 : 0;
+      rightArm.current.rotation.x = sitting ? -0.5 : activeEffect?.action === 'hug' ? -Math.sin(age * Math.PI) * 1.25 : waving ? -Math.sin(age * Math.PI) * 1.45 : holdingHands ? -0.2 : -swing;
+      rightArm.current.rotation.z = activeEffect?.action === 'hug' ? -Math.sin(age * Math.PI) * 0.48 : waving && activeEffect && ['slap', 'throw_popcorn', 'throw_tomato'].includes(activeEffect.action) ? -Math.sin(age * Math.PI) * 0.9 : 0;
     }
     if (leftLeg.current) leftLeg.current.rotation.x = person.pose === 'sitting_chair' ? 0 : sitting ? -1.15 : fallen ? 0.8 : -swing * 0.8;
     if (rightLeg.current) rightLeg.current.rotation.x = person.pose === 'sitting_chair' ? 0 : sitting ? -1.15 : fallen ? -0.35 : swing * 0.8;

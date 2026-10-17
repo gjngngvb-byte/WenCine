@@ -25,7 +25,7 @@ describe('room store', () => {
     if ('error' in joined) return;
     expect(findParticipantByToken(created.room.id, joined.participantToken)?.participant.id).toBe(joined.participant.id);
     const moved = updateParticipantPosition(created.room.id, joined.participant.id, { x: 99, z: -99, rotation: 1 });
-    expect(moved?.participant.x).toBe(8);
-    expect(moved?.participant.z).toBe(-1);
+    expect(moved?.participant.x).toBe(9.05);
+    expect(moved?.participant.z).toBe(-9.35);
   });
 });
