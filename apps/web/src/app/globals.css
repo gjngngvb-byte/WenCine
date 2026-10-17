@@ -161,3 +161,19 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #
  .mobile-action-buttons button { flex: 1; min-height: 3rem; border-radius: 999px; background: linear-gradient(135deg,#bba4ff,#8057d8); color: #171124; font-size: .82rem; }
  .movement-help { font-size: .65rem; }
 }
+
+/* Joystick analógico flutuante para toque, com zona ampla e retorno ao centro */
+.mobile-controls { display: none; }
+.mobile-joystick-zone { display: none; }
+@media (max-width: 600px) {
+  .mobile-controls { display: flex; align-items: end; justify-content: space-between; gap: 1rem; padding: .6rem .85rem calc(.8rem + env(safe-area-inset-bottom)); pointer-events: none; position: relative; z-index: 5; background: linear-gradient(180deg, transparent, #100e18d9 22%); }
+  .mobile-joystick-zone { display: flex; flex-direction: column; align-items: center; gap: .3rem; pointer-events: auto; touch-action: none; user-select: none; }
+  .mobile-joystick { width: 116px; height: 116px; border-radius: 50%; border: 1px solid #c4b5fd77; background: radial-gradient(circle at 35% 30%, #b5a4e33d, #34264b99 72%); box-shadow: inset 0 0 18px #c4b5fd22, 0 5px 22px #0005; display: grid; place-items: center; touch-action: none; }
+  .mobile-joystick-knob { width: 48px; height: 48px; border-radius: 50%; border: 1px solid #eee6ffb3; background: linear-gradient(145deg,#d8ccff,#8c70d2); box-shadow: 0 3px 12px #0006, inset 0 1px 3px #fff9; pointer-events: none; will-change: transform; }
+  .joystick-caption { color: #cfc5e7; font-size: .58rem; font-weight: 800; letter-spacing: .14em; text-shadow: 0 1px 3px #000; }
+  .mobile-action-buttons { display: flex; flex-direction: column; align-items: stretch; gap: .55rem; width: min(42%, 148px); pointer-events: auto; padding: 0 0 .9rem; }
+  .mobile-action-buttons button { min-height: 3.15rem; border-radius: 1rem; border: 1px solid #d8c7ff88; background: linear-gradient(145deg,#a78bfa,#6941b6); color: #fff; font-size: .84rem; font-weight: 850; box-shadow: 0 4px 14px #0005; touch-action: manipulation; }
+  .mobile-action-buttons button:active { transform: scale(.96); filter: brightness(1.15); }
+  .movement-help { display: none; }
+  .canvas-wrap { touch-action: pan-x pan-y; }
+}
