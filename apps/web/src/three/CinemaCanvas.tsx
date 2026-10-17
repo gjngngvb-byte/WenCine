@@ -133,8 +133,9 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
     const directionX = Math.sin(position.rotation);
     const directionZ = Math.cos(position.rotation);
     if (cameraMode === 'first') {
-      camera.position.set(position.x + directionX * 0.04, 1.45, position.z + directionZ * 0.04);
-      camera.lookAt(position.x + directionX * 4, 1.45, position.z + directionZ * 4);
+      const eyeHeight = pose === 'sitting_chair' ? 1.12 : pose === 'sitting' ? 0.7 : pose === 'crouching' ? 0.92 : pose === 'lying_back' ? 0.35 : pose === 'fallen' ? 0.45 : 1.45;
+      camera.position.set(position.x + directionX * 0.04, eyeHeight, position.z + directionZ * 0.04);
+      camera.lookAt(position.x + directionX * 4, eyeHeight, position.z + directionZ * 4);
     } else {
       // Mantém a câmera dentro do cinema mesmo quando o avatar chega à tela ou às paredes.
       camera.position.set(THREE.MathUtils.clamp(position.x + directionX * 3.25, -9.2, 9.2), 1.9,
