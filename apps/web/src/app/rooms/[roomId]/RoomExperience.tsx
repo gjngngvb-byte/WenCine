@@ -121,14 +121,14 @@ export function RoomExperience({ roomId }: { roomId: string }) {
       setPose('fallen');
       socketRef.current?.emit('social:action', { action: 'fall' });
     }
-    const next = { x, z, rotation: dx === 0 && dz === 0 ? current.rotation : Math.atan2(dx, dz) };
+    const next = { x, z, rotation: cameraMode === 'first' ? Math.PI - cameraYawRef.current : dx === 0 && dz === 0 ? current.rotation : Math.atan2(dx, dz) };
     positionRef.current = next;
     setPosition(next);
     if (now - lastMoveRef.current > 45) {
       lastMoveRef.current = now;
       socketRef.current?.emit('avatar:move', { ...next, color, accessory, expression });
     }
-  }, [color, accessory, expression]);
+  }, [color, accessory, expression, cameraMode]);
   useEffect(() => {
     let lastCtrlTap = 0;
     function onKeyDown(event: KeyboardEvent) {
