@@ -73,8 +73,10 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
         // um avatar através de uma cadeira nem mover o corpo enquanto está sentado.
         const seats = Array.from({ length: 5 }, (_, row) =>
           Array.from({ length: 8 }, (_, col) => ({ x: (col - 3.5) * 1.25, z: 1 + row * 1.65 }))).flat();
+        // Mantém compatibilidade com o cliente de produção atual; o cliente atualizado
+        // usa 0,60 m e aproxima a cadeira a 0,68 m antes de sentar.
         const intersectsChair = seats.some((seat) =>
-          Math.abs(x - seat.x) < 0.60 && Math.abs(z - seat.z) < 0.60);
+          Math.abs(x - seat.x) < 0.48 && Math.abs(z - seat.z) < 0.48);
         const intersectsPerson = [...(findParticipantByToken(roomId, token)?.room.participants.values() ?? [])].some((person) =>
           person.id !== participantId && person.id !== current.holdingHandsWith && person.connected && Math.hypot(x - person.x, z - person.z) < 0.62);
         if (current.pose === 'sitting_chair' || intersectsChair || intersectsPerson) {
