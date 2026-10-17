@@ -116,13 +116,16 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
             Array.from({ length: 8 }, (_, col) => ({ x: (col - 3.5) * 1.25, z: 1 + row * 1.65 }))).flat();
           const availableSeats = seats.filter((seat) => ![...found.room.participants.values()].some((person) =>
             person.id !== actor.id && person.pose === 'sitting_chair' && Math.hypot(person.x - seat.x, person.z - seat.z) < 0.7));
-          const requestedSeat = seatX === undefined || seatZ === undefined
-            ? undefined
-            : seats.find((seat) => Math.abs(seat.x - seatX) < 0.001 && Math.abs(seat.z - seatZ) < 0.001);
-          const seat = requestedSeat
-            ? availableSeats.find((candidate) => candidate.x === requestedSeat.x && candidate.z === requestedSeat.z)
+          const hasExplicitSeat = seatX !== undefined && seatZ !== undefined;
+          const requestedSeat = hasExplicitSeat
+            ? seats.find((seat) => Math.abs(seat.x - seatX) < 0.001 && Math.abs(seat.z - seatZ) < 0.001)
+            : undefined;
+          // If the client named a chair, only that exact chair is allowed. Never silently
+          // replace it with a different nearest chair or reject it due to stale actor coordinates.
+          const seat = hasExplicitSeat
+            ? (requestedSeat ? availableSeats.find((candidate) => candidate.x === requestedSeat.x && candidate.z === requestedSeat.z) : undefined)
             : availableSeats.sort((a, b) => Math.hypot(a.x - actor.x, a.z - actor.z) - Math.hypot(b.x - actor.x, b.z - actor.z))[0];
-          if (!seat || !closeEnough(actor, seat, 1.8)) {
+          if (!seat || (!hasExplicitSeat && !closeEnough(actor, seat, 1.8))) {
             if (actor.socketId) io.to(actor.socketId).emit('social:response', { accepted: false, message: 'Aproxime-se de uma cadeira livre para sentar.' });
             return;
           }
