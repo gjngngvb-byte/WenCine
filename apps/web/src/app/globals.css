@@ -178,3 +178,12 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #
   /* Mantém os gestos de câmera sob controle do canvas 3D no celular. */
   .canvas-wrap { touch-action: none; }
 }
+
+
+/* Seletor compacto dos três modos de câmera */
+.camera-mode-controls { display: flex; align-items: center; flex-wrap: wrap; gap: .45rem; padding: .65rem .85rem; border-top: 1px solid #ffffff10; background: #171522; }
+.camera-mode-controls > span { margin-right: .25rem; color: var(--muted); font-size: .72rem; font-weight: 750; }
+.camera-mode-controls button { min-height: 2.25rem; padding: .45rem .8rem; border: 1px solid #57476f; border-radius: .7rem; background: #211b30; color: #e9e2fb; font-size: .73rem; font-weight: 750; touch-action: manipulation; }
+.camera-mode-controls button:hover { border-color: #b69cff; }
+.camera-mode-controls button.active { border-color: #c4b5fd; background: linear-gradient(135deg,#bba4ff,#8057d8); color: #171124; box-shadow: 0 0 .8rem #8b5cf633; }
+@media (max-width: 600px) { .camera-mode-controls { gap: .35rem; padding: .55rem .6rem; }.camera-mode-controls > span { width: 100%; }.camera-mode-controls button { flex: 1; min-width: 0; padding: .45rem .35rem; font-size: .68rem; } }
