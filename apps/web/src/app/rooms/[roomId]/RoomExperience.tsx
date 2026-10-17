@@ -29,7 +29,8 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   const [accessory, setAccessory] = useState('none');
   const [expression, setExpression] = useState('neutral');
   const [showCustomize, setShowCustomize] = useState(false);
-  const [mobileDirection, setMobileDirection] = useState('');
+  const [mobileVector, setMobileVector] = useState({ x: 0, z: 0 });
+  const joystickRef = useRef<HTMLDivElement | null>(null);
   const [pose, setPose] = useState<'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'>('standing');
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null);
   const [pendingRequest, setPendingRequest] = useState<{ requestId: string; fromId: string; fromName: string; action: string } | null>(null);
@@ -163,13 +164,26 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     frame = window.requestAnimationFrame(tick);
     return () => { window.cancelAnimationFrame(frame); window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp); window.removeEventListener('blur', clearKeys); };
   }, [move]);
+  const updateJoystick = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const element = joystickRef.current;
+    if (!element) return;
+    const rect = element.getBoundingClientRect();
+    const radius = Math.min(rect.width, rect.height) * 0.34;
+    const dx = event.clientX - (rect.left + rect.width / 2);
+    const dy = event.clientY - (rect.top + rect.height / 2);
+    const length = Math.hypot(dx, dy) || 1;
+    const scale = Math.min(1, radius / length);
+    setMobileVector({ x: (dx * scale) / radius, z: (dy * scale) / radius });
+  }, []);
   useEffect(() => {
-    if (!mobileDirection) return;
-    const directions: Record<string, [number, number]> = { up: [0, -0.12], down: [0, 0.12], left: [-0.12, 0], right: [0.12, 0] };
-    const direction = directions[mobileDirection]; if (!direction) return;
-    const timer = window.setInterval(() => move(direction[0], direction[1]), 80);
+    if (!mobileVector.x && !mobileVector.z) return;
+    const timer = window.setInterval(() => {
+      const length = Math.hypot(mobileVector.x, mobileVector.z) || 1;
+      const speed = 0.19 * Math.min(1, length);
+      move((mobileVector.x / length) * speed, (mobileVector.z / length) * speed);
+    }, 45);
     return () => window.clearInterval(timer);
-  }, [mobileDirection, move]);
+  }, [mobileVector, move]);
   useEffect(() => { socketRef.current?.emit('avatar:move', { ...position, color, accessory, expression }); }, [color, accessory, expression]);
   const nearbyParticipant = participants
     .filter((person) => person.id !== selfId && person.connected)
@@ -207,10 +221,9 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     <div className="experience-layout"><section className="cinema-stage"><div className="stage-label"><span>WENCINE / SALA 3D</span><span>{participants.filter((p) => p.connected).length} participante(s)</span></div>
       <div className="canvas-wrap"><CinemaCanvas participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} nearbySeat={nearestSeatDistance <= 1.3 && pose === 'standing' ? nearestSeat : null} onSitChair={() => { heldKeys.current.clear(); setPose('sitting_chair'); socialAction('sit_chair'); }} onSelectParticipant={(id) => setSelectedParticipantId(id)} /></div>
       <div className="movement-help">WASD / setas: andar · Espaço: pular · E: interagir · Shift: correr · Ctrl: agachar · Ctrl duas vezes: deitar</div>
-      <div className="mobile-controls" aria-label="Controles de movimentação"><button onPointerDown={() => setMobileDirection('up')} onPointerUp={() => setMobileDirection('')} onPointerLeave={() => setMobileDirection('')} aria-label="Andar para frente">↑</button>
-        <div><button onPointerDown={() => setMobileDirection('left')} onPointerUp={() => setMobileDirection('')} onPointerLeave={() => setMobileDirection('')} aria-label="Andar para esquerda">←</button>
-          <button onPointerDown={() => setMobileDirection('down')} onPointerUp={() => setMobileDirection('')} onPointerLeave={() => setMobileDirection('')} aria-label="Andar para trás">↓</button>
-          <button onPointerDown={() => setMobileDirection('right')} onPointerUp={() => setMobileDirection('')} onPointerLeave={() => setMobileDirection('')} aria-label="Andar para direita">→</button></div><div className="mobile-action-buttons"><button onClick={() => { if (pose === 'sitting_chair' || pose === 'sitting' || pose === 'fallen' || pose === 'lying_back') { setPose('standing'); socialAction('stand'); } else socialAction('jump'); }}>{pose === 'sitting_chair' ? 'Levantar' : 'Pular'}</button><button onClick={() => { if (nearestSeatDistance <= 1.3 && pose === 'standing') { setPose('sitting_chair'); socialAction('sit_chair'); } else if (nearbyParticipant) socialAction('offer_hand', { targetId: nearbyParticipant.id }); else socialAction('throw_popcorn'); }}>{pose === 'standing' ? 'Interagir' : 'Ação'}</button></div></div></section>
+      <div className="mobile-controls" aria-label="Controles de movimentação">
+        <div className="mobile-joystick-zone"><div className="mobile-joystick" ref={joystickRef} onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); updateJoystick(event); }} onPointerMove={(event) => { if (event.buttons) updateJoystick(event); }} onPointerUp={() => setMobileVector({ x: 0, z: 0 })} onPointerCancel={() => setMobileVector({ x: 0, z: 0 })} onLostPointerCapture={() => setMobileVector({ x: 0, z: 0 })} role="application" aria-label="Joystick virtual: arraste para andar"><span className="mobile-joystick-knob" style={{ transform: `translate(${mobileVector.x * 35}px, ${mobileVector.z * 35}px)` }} /></div><span className="joystick-caption">MOVER</span></div>
+        <div className="mobile-action-buttons"><button onClick={() => { if (pose === 'sitting_chair' || pose === 'sitting' || pose === 'fallen' || pose === 'lying_back') { setPose('standing'); socialAction('stand'); } else socialAction('jump'); }}>{pose === 'sitting_chair' ? '↑ Levantar' : '↑ Pular'}</button><button onClick={() => { if (nearestSeatDistance <= 1.3 && pose === 'standing') { setPose('sitting_chair'); socialAction('sit_chair'); } else if (nearbyParticipant) socialAction('offer_hand', { targetId: nearbyParticipant.id }); else socialAction('throw_popcorn'); }}>{pose === 'standing' ? 'Interagir' : 'Ação'}</button></div></div></section>
     <aside className="room-sidebar"><section className="side-panel"><div className="panel-heading"><h2>Seu avatar</h2><button className="text-button" onClick={() => setShowCustomize((value) => !value)}>{showCustomize ? 'Fechar' : 'Personalizar'}</button></div>
       <p className="muted-copy">A aparência é aplicada ao modelo 3D e compartilhada com a sala.</p>
       {showCustomize && <div className="customize-controls"><label>Cor <div className="color-options">{['#a78bfa','#f472b6','#60a5fa','#34d399','#fbbf24','#f8fafc','#f87171'].map((value) =>
