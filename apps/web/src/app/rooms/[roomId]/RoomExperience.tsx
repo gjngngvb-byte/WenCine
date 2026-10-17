@@ -41,7 +41,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   const [filmSummary, setFilmSummary] = useState<{ count: number; average: number } | null>(null);
   const lastMoveRef = useRef(0);
   const lastBumpRef = useRef(0);
-  const pendingSeatRef = useRef<{ x: number; z: number; approachX: number; approachZ: number } | null>(null);
+  const pendingSeatRef = useRef<{ x: number; z: number; approachX: number; approachZ: number; returnX: number; returnZ: number; returnRotation: number } | null>(null);
   const heldKeys = useRef(new Set<string>());
   const participantsRef = useRef<Participant[]>([]);
   participantsRef.current = participants;
@@ -171,7 +171,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
           pendingSeatRef.current = null;
           heldKeys.current.clear();
           // A pose só muda quando o servidor confirma o assento e sincroniza a posição.
-          socialAction('sit_chair', { seatX: pendingSeat.x, seatZ: pendingSeat.z, returnX: current.x, returnZ: current.z, returnRotation: current.rotation });
+          socialAction('sit_chair', { seatX: pendingSeat.x, seatZ: pendingSeat.z, returnX: pendingSeat.returnX, returnZ: pendingSeat.returnZ, returnRotation: pendingSeat.returnRotation });
         } else {
           const step = Math.min(distance, 2.8 * elapsed);
           const beforeX = current.x;
@@ -265,7 +265,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     const approach = Math.abs(offsetX) > Math.abs(offsetZ)
       ? { x: seat.x + Math.sign(offsetX || 1) * 0.68, z: current.z }
       : { x: current.x, z: seat.z + Math.sign(offsetZ || -1) * 0.68 };
-    pendingSeatRef.current = { ...seat, approachX: approach.x, approachZ: approach.z };
+    pendingSeatRef.current = { ...seat, approachX: approach.x, approachZ: approach.z, returnX: current.x, returnZ: current.z, returnRotation: current.rotation };
     heldKeys.current.clear();
   }
   function standUp() {

@@ -223,8 +223,10 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
           }
           // Guarda a posição de aproximação antes de encaixar o avatar no centro do assento.
           // Coordenadas vindas do cliente só são aceitas se estiverem perto da posição atual.
-          const requestedReturn = returnX !== undefined && returnZ !== undefined &&
-            Math.hypot(returnX - actor.x, returnZ - actor.z) <= 1.0
+          // Usa o ponto exato capturado no instante do clique para sentar, mesmo que
+          // o personagem tenha caminhado até a cadeira antes de concluir a ação.
+          // O schema já limita essas coordenadas aos limites navegáveis da sala.
+          const requestedReturn = returnX !== undefined && returnZ !== undefined
             ? { x: returnX, z: returnZ } : { x: actor.x, z: actor.z };
           actor.chairReturnX = requestedReturn.x;
           actor.chairReturnZ = requestedReturn.z;
