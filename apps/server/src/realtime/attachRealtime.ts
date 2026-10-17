@@ -12,14 +12,17 @@ const PositionSchema = z.object({ x: z.number().finite(), z: z.number().finite()
 const ChatSchema = z.object({ message: z.string().trim().min(1).max(500) });
 const SocialSchema = z.object({
   action: z.enum(['sit', 'sit_floor', 'sit_chair', 'stand', 'fall', 'offer_hand', 'accept_interaction', 'decline_interaction', 'release_hand',
-    'share_popcorn', 'kiss', 'peck', 'slap', 'throw_popcorn', 'throw_tomato', 'steal_popcorn', 'handsy', 'rate_film', 'jump', 'crouch', 'lie_back']),
+    'share_popcorn', 'kiss', 'peck', 'slap', 'throw_popcorn', 'throw_tomato', 'steal_popcorn', 'handsy', 'hug', 'rate_film', 'jump', 'crouch', 'lie_back']),
   targetId: z.string().uuid().optional(),
   requestId: z.string().uuid().optional(),
   rating: z.number().int().min(1).max(5).optional(),
   seatX: z.number().finite().optional(),
   seatZ: z.number().finite().optional(),
+  returnX: z.number().finite().min(-9.05).max(9.05).optional(),
+  returnZ: z.number().finite().min(-9.35).max(9.2).optional(),
+  returnRotation: z.number().finite().optional(),
 });
-type PendingSocialRequest = { id: string; roomId: string; fromId: string; toId: string; action: 'hold_hands' | 'kiss' | 'peck' | 'handsy'; createdAt: number };
+type PendingSocialRequest = { id: string; roomId: string; fromId: string; toId: string; action: 'hold_hands' | 'kiss' | 'peck' | 'handsy' | 'hug'; createdAt: number };
 const pendingSocialRequests = new Map<string, PendingSocialRequest>();
 const filmRatings = new Map<string, Map<string, number>>();
 function closeEnough(a: { x: number; z: number }, b: { x: number; z: number }, max = 2.4) {
@@ -125,7 +128,7 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
     socket.on('social:action', (payload: unknown) => {
       const parsed = SocialSchema.safeParse(payload);
       if (!parsed.success) return;
-      const { action, targetId, requestId, rating, seatX, seatZ } = parsed.data;
+      const { action, targetId, requestId, rating, seatX, seatZ, returnX, returnZ, returnRotation } = parsed.data;
       const actor = findParticipantByToken(roomId, token)?.participant;
       if (!actor) return;
       const target = targetId ? found.room.participants.get(targetId) : undefined;
@@ -156,8 +159,12 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
           // Tenta primeiro sair pela frente da cadeira. Se o corredor estiver ocupado,
           // procura o ponto livre mais próximo em toda a sala, sem atravessar assentos
           // nem outros avatares.
-          const preferred = { x: actor.x, z: actor.z - 0.95 };
-          const candidates = [preferred];
+          const savedReturn = actor.chairReturnX !== undefined && actor.chairReturnZ !== undefined
+            ? { x: actor.chairReturnX, z: actor.chairReturnZ } : undefined;
+          const preferred = savedReturn ?? { x: actor.x, z: actor.z - 0.95 };
+          // Volta primeiro ao ponto exato em que o jogador estava antes da animação de sentar.
+          // Se alguém ocupou esse espaço, tenta a saída frontal e depois os corredores livres.
+          const candidates = savedReturn ? [savedReturn, { x: actor.x, z: actor.z - 0.95 }] : [{ x: actor.x, z: actor.z - 0.95 }];
           for (let x = -8.75; x <= 8.75; x += 0.25) {
             for (let z = -9; z <= 9; z += 0.25) {
               candidates.push({ x: Number(x.toFixed(2)), z: Number(z.toFixed(2)) });
@@ -176,11 +183,15 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
             socket.emit('social:response', { accepted: false, message: 'A sala está lotada ao redor da cadeira. Afaste alguém ou tente novamente.' });
             return;
           }
+          const returnsToSavedSpot = Boolean(savedReturn && Math.hypot(safeSpot.x - savedReturn.x, safeSpot.z - savedReturn.z) < 0.001);
           updateParticipantPosition(roomId, actor.id, {
             x: safeSpot.x,
             z: safeSpot.z,
-            rotation: Math.PI,
+            rotation: returnsToSavedSpot ? actor.chairReturnRotation ?? Math.PI : Math.PI,
           });
+          delete actor.chairReturnX;
+          delete actor.chairReturnZ;
+          delete actor.chairReturnRotation;
           // Primeiro desloca o avatar ainda sentado para fora da cadeira. Só depois
           // muda para a pose em pé, para clientes antigos não mostrarem o corpo atravessando o assento.
           io.to(roomId).emit('avatar:moved', safeParticipant(actor));
@@ -210,7 +221,16 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
             if (actor.socketId) io.to(actor.socketId).emit('social:response', { accepted: false, message: 'Aproxime-se de uma cadeira livre para sentar.' });
             return;
           }
-          // A posição do avatar usa o centro geométrico exato do assento, sem deslocamento em Z.
+          // Guarda a posição de aproximação antes de encaixar o avatar no centro do assento.
+          // Coordenadas vindas do cliente só são aceitas se estiverem perto da posição atual.
+          const requestedReturn = returnX !== undefined && returnZ !== undefined &&
+            Math.hypot(returnX - actor.x, returnZ - actor.z) <= 1.0
+            ? { x: returnX, z: returnZ } : { x: actor.x, z: actor.z };
+          actor.chairReturnX = requestedReturn.x;
+          actor.chairReturnZ = requestedReturn.z;
+          actor.chairReturnRotation = returnRotation !== undefined && Number.isFinite(returnRotation)
+            ? returnRotation : actor.rotation;
+          // A posição sentada usa o centro geométrico exato do assento.
           updateParticipantPosition(roomId, actor.id, { x: seat.x, z: seat.z, rotation: Math.PI });
         }
         actor.pose = action === 'sit_chair' ? 'sitting_chair' : (action === 'sit' || action === 'sit_floor') ? 'sitting' : action === 'fall' ? 'fallen' : 'standing';
@@ -254,11 +274,11 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
         if (partner) io.to(roomId).emit('avatar:moved', safeParticipant(partner));
         return;
       }
-      if (action === 'offer_hand' || action === 'kiss' || action === 'peck' || action === 'handsy') {
+      if (action === 'offer_hand' || action === 'kiss' || action === 'peck' || action === 'handsy' || action === 'hug') {
         if (!target || !target.connected || target.id === actor.id || !closeEnough(actor, target)) return;
         if (target.displayName === 'Bot de Teste') { if (action === 'offer_hand') { actor.holdingHandsWith = target.id; target.holdingHandsWith = actor.id; } notifyAction(target, action === 'offer_hand' ? 'hold_hands' : action); return; }
         const seatedTogether = actor.pose === 'sitting_chair' && target.pose === 'sitting_chair' && Math.hypot(actor.x - target.x, actor.z - target.z) <= 1.85;
-        if ((target.displayName === 'Bot de Teste' || seatedTogether) && (action === 'handsy' || action === 'kiss' || action === 'peck')) { notifyAction(target, action); return; }
+        if ((target.displayName === 'Bot de Teste' || seatedTogether) && (action === 'handsy' || action === 'kiss' || action === 'peck' || action === 'hug')) { notifyAction(target, action); return; }
         const requestedAction = action === 'offer_hand' ? 'hold_hands' : action;
         const id = randomUUID();
         const request: PendingSocialRequest = { id, roomId, fromId: actor.id, toId: target.id, action: requestedAction, createdAt: Date.now() };
