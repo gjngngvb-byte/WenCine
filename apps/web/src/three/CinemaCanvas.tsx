@@ -9,7 +9,7 @@ type Participant = {
   id: string; displayName: string; color: string; accessory: string; expression: string;
   x: number; z: number; rotation: number; connected: boolean; pose?: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; holdingHandsWith?: string;
 };
-type SocialEffect = { id: string; action: string; actorId: string; targetId?: string; sentAt: number; hitX?: number; hitY?: number; hitZ?: number; normalX?: number; normalY?: number; normalZ?: number };
+type SocialEffect = { id: string; action: string; actorId: string; targetId?: string; sentAt: number; receivedAt?: number; hitX?: number; hitY?: number; hitZ?: number; normalX?: number; normalY?: number; normalZ?: number };
 type CameraMode = 'third' | 'first';
 type AimPoint = { x: number; y: number; z: number; nx: number; ny: number; nz: number };
 type AimPointGetterRef = { current: ((yaw: number, pitch: number) => AimPoint | null) | null };
@@ -237,7 +237,8 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
     {participants.filter((person) => person.id !== selfId && person.connected).map((person) => <Avatar key={person.id} person={person} socialEffects={socialEffects} allPeople={[localPerson, ...participants.filter((candidate) => candidate.id !== selfId && candidate.connected)]} onSelectParticipant={onSelectParticipant} />)}
     <primitive object={trajectoryObject} ref={trajectoryLine} visible={false} userData={{ isSocialEffect: true }} />
     {socialEffects.filter((effect) => ['throw_popcorn', 'throw_tomato'].includes(effect.action) && Date.now() - effect.sentAt < 4300).map((effect) => {
-      const thrower = participants.find((person) => person.id === effect.actorId) ?? (effect.actorId === selfId ? localPerson : undefined);
+      // A posição local atual é mais precisa que o último pacote de movimento recebido pelo servidor.
+      const thrower = effect.actorId === selfId ? localPerson : participants.find((person) => person.id === effect.actorId);
       return thrower && effect.hitX !== undefined && effect.hitY !== undefined && effect.hitZ !== undefined
         ? <ThrownSnack key={effect.id} effect={effect} x={thrower.x} z={thrower.z} rotation={thrower.rotation} />
         : null;
@@ -252,7 +253,7 @@ function ThrownSnack({ effect, x, z, rotation }: { effect: SocialEffect; x: numb
   const impactStarted = useRef(false);
   const hit = useMemo(() => new THREE.Vector3(effect.hitX!, effect.hitY!, effect.hitZ!), [effect.hitX, effect.hitY, effect.hitZ]);
   const normal = useMemo(() => new THREE.Vector3(effect.normalX ?? 0, effect.normalY ?? 1, effect.normalZ ?? 0).normalize(), [effect.normalX, effect.normalY, effect.normalZ]);
-  const flightMs = 520;
+  const flightMs = 900;
   const isTomato = effect.action === 'throw_tomato';
   const seed = useMemo(() => {
     let value = 0;
@@ -279,7 +280,7 @@ function ThrownSnack({ effect, x, z, rotation }: { effect: SocialEffect; x: numb
     color: i % 2 ? '#dc2626' : '#ef4444',
   })), [seed]);
   useFrame(() => {
-    const ageMs = Date.now() - effect.sentAt;
+    const ageMs = Date.now() - (effect.receivedAt ?? effect.sentAt);
     const t = Math.max(0, Math.min(1, ageMs / flightMs));
     // Lança da frente do avatar e descreve um arco balístico até o ponto
     // atingido pela mira da câmera, em vez de deslizar em linha quase reta.
@@ -296,7 +297,7 @@ function ThrownSnack({ effect, x, z, rotation }: { effect: SocialEffect; x: numb
       projectile.current.rotation.set(t * 7, t * 11, t * 5);
       // O tomate viaja como uma peça; a pipoca já sai como várias bolinhas.
       projectile.current.visible = isTomato && ageMs < flightMs;
-      projectile.current.scale.setScalar(0.15);
+      projectile.current.scale.setScalar(isTomato ? 0.24 : 0.12);
     }
     if (stain.current) {
       const afterHit = (ageMs - flightMs) / 1000;
@@ -366,7 +367,7 @@ function ThrownSnack({ effect, x, z, rotation }: { effect: SocialEffect; x: numb
       </mesh>)}
     </group>
     {!isTomato && kernelStarts.map((start, i) => <mesh key={i} ref={(node) => { kernels.current[i] = node; }} position={[hit.x + start.x, hit.y + start.y, hit.z + start.z]} visible={false} userData={{ isSocialEffect: true }}>
-      <sphereGeometry args={[0.035 + (i % 3) * 0.006, 8, 6]} /><meshBasicMaterial color="#fffdf5" transparent opacity={1} />
+      <sphereGeometry args={[0.065 + (i % 3) * 0.012, 10, 8]} /><meshBasicMaterial color="#fff4c2" transparent opacity={1} />
     </mesh>)}
   </>;
 }
