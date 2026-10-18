@@ -144,16 +144,15 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
       const viewDirection = new THREE.Vector3(Math.sin(cameraYaw) * Math.cos(cameraPitch), Math.sin(cameraPitch), -Math.cos(cameraYaw) * Math.cos(cameraPitch));
       camera.lookAt(focus.clone().add(viewDirection.multiplyScalar(5)));
     }
-    // A mira deve seguir exatamente o centro da imagem renderizada, não uma direção
-    // reconstruída a partir dos controles. Isso mantém o impacto alinhado ao que a câmera vê.
+    // FPS aim: use the camera's actual world-space forward vector at this frame.
+    // This avoids stale projection/ray state when pointer-lock mouse input rotates
+    // the camera, and works identically in first- and third-person modes.
     scene.updateMatrixWorld(true);
-    camera.updateMatrixWorld(true);
-    // Cast the ray through the exact center of the rendered viewport. This is the
-    // same center line the player aims with while the mouse is pointer-locked.
-    // setFromCamera uses the camera's current projection + world matrices, avoiding
-    // a stale/reconstructed forward vector that can make every throw hit one point.
-    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-    const direction = raycaster.ray.direction.clone().normalize();
+    camera.updateWorldMatrix(true, false);
+    const origin = camera.getWorldPosition(new THREE.Vector3());
+    const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion())).normalize();
+    raycaster.set(origin, direction);
+    raycaster.near = 0.05;
     raycaster.far = 30;
     const hit = raycaster.intersectObjects(scene.children, true).find((item) => {
       let node: THREE.Object3D | null = item.object;
