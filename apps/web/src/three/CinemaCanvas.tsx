@@ -127,6 +127,7 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
   const raycaster = useMemo(() => new THREE.Raycaster(), []);
   const aimPointCallback = useRef(onAimPoint);
   const trajectoryLine = useRef<THREE.Line>(null);
+  const trajectoryObject = useMemo(() => new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: '#fff2b3', transparent: true, opacity: 0.95, depthTest: false })), []);
   aimPointCallback.current = onAimPoint;
   const getAimPoint = useCallback((yaw = cameraYaw, pitch = cameraPitch): AimPoint => {
     // Recalcula a mira no instante do arremesso, usando a câmera já atualizada.
@@ -190,6 +191,8 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
       const line = trajectoryLine.current;
       line.visible = Boolean(aimingAction);
       if (aimingAction) {
+        const material = line.material as THREE.LineBasicMaterial;
+        material.color.set(aimingAction === 'throw_tomato' ? '#ff5757' : '#fff2b3');
         const target = getAimPoint(cameraYaw, cameraPitch);
         const start = new THREE.Vector3(
           position.x + Math.sin(position.rotation) * 0.28,
@@ -232,10 +235,7 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
     {Array.from({ length: 9 }, (_, i) => <pointLight key={i} position={[(i - 4) * 2.2, 5.5, 3]} color={i % 2 ? '#8b5cf6' : '#60a5fa'} intensity={1.2} distance={4} />)}
     {cameraMode !== 'first' && <Avatar person={localPerson} local onSelectParticipant={onSelectParticipant} socialEffects={socialEffects} allPeople={[localPerson, ...participants.filter((person) => person.id !== selfId && person.connected)]} />}
     {participants.filter((person) => person.id !== selfId && person.connected).map((person) => <Avatar key={person.id} person={person} socialEffects={socialEffects} allPeople={[localPerson, ...participants.filter((candidate) => candidate.id !== selfId && candidate.connected)]} onSelectParticipant={onSelectParticipant} />)}
-    <line ref={trajectoryLine} visible={false} userData={{ isSocialEffect: true }}>
-      <bufferGeometry />
-      <lineBasicMaterial color={aimingAction === 'throw_tomato' ? '#ff5757' : '#fff2b3'} transparent opacity={0.95} depthTest={false} />
-    </line>
+    <primitive object={trajectoryObject} ref={trajectoryLine} visible={false} userData={{ isSocialEffect: true }} />
     {socialEffects.filter((effect) => ['throw_popcorn', 'throw_tomato'].includes(effect.action) && Date.now() - effect.sentAt < 4300).map((effect) => {
       const thrower = participants.find((person) => person.id === effect.actorId) ?? (effect.actorId === selfId ? localPerson : undefined);
       return thrower ? <ThrownSnack key={effect.id} effect={effect} x={thrower.x} z={thrower.z} rotation={thrower.rotation} /> : null;
