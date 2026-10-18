@@ -41,6 +41,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   const cameraPitchRef = useRef(-0.12);
   const canvasWrapRef = useRef<HTMLDivElement | null>(null);
   const aimPointRef = useRef<{ x: number; y: number; z: number; nx: number; ny: number; nz: number } | null>(null);
+  const aimPointGetterRef = useRef<(() => { x: number; y: number; z: number; nx: number; ny: number; nz: number } | null) | null>(null);
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null);
   const [pendingRequest, setPendingRequest] = useState<{ requestId: string; fromId: string; fromName: string; action: string } | null>(null);
   const [socialStatus, setSocialStatus] = useState('');
@@ -298,8 +299,12 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     setSocialStatus('Levante primeiro para poder deitar.');
   }
   function socialAction(action: string, extra: { targetId?: string | undefined; requestId?: string | undefined; rating?: number | undefined; seatX?: number | undefined; seatZ?: number | undefined; returnX?: number | undefined; returnZ?: number | undefined; returnRotation?: number | undefined } = {}) {
-    const aim = aimPointRef.current;
-    const impact = (action === 'throw_popcorn' || action === 'throw_tomato') && aim
+    // Obtém o ponto com um raycast novo no instante do clique; o valor por frame
+    // fica apenas como fallback caso a cena ainda não tenha registrado o getter.
+    const aim = (action === 'throw_popcorn' || action === 'throw_tomato')
+      ? aimPointGetterRef.current?.() ?? aimPointRef.current
+      : null;
+    const impact = aim
       ? { hitX: aim.x, hitY: aim.y, hitZ: aim.z, normalX: aim.nx, normalY: aim.ny, normalZ: aim.nz }
       : {};
     socketRef.current?.emit('social:action', { action, ...impact, ...extra });
@@ -339,7 +344,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     <div className="experience-layout"><section className="cinema-stage"><div className="stage-label"><span>WENCINE / SALA 3D</span><span>{participants.filter((p) => p.connected).length} participante(s)</span></div>
       <div className="screen-mode-toolbar"><button type="button" onClick={() => { document.exitPointerLock?.(); setScreenMode('normal'); }}>Sair da tela cheia</button></div>
       <div className="camera-mode-hint" aria-live="polite">{cameraMode === 'third' ? 'Terceira pessoa' : 'Primeira pessoa'} · clique no cinema e mova o mouse para olhar · TAB troca câmera · Esc libera o mouse</div>
-      <div className="canvas-wrap" ref={canvasWrapRef} onPointerDown={(event) => { if (!(event.target instanceof HTMLCanvasElement)) return; if (document.pointerLockElement !== event.target) { void event.target.requestPointerLock(); return; } if (event.button === 0) { event.preventDefault(); socialAction('throw_popcorn'); } else if (event.button === 2) { event.preventDefault(); socialAction('throw_tomato'); } }} onContextMenu={(event) => event.preventDefault()} onWheel={(event) => { if (cameraMode !== 'third') return; event.preventDefault(); setCameraDistance((current) => Math.max(1.8, Math.min(8, current + (event.deltaY > 0 ? 0.45 : -0.45)))); }}><CinemaCanvas participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} nearbySeat={nearestSeatDistance <= 1.3 && pose === 'standing' ? nearestSeat : null} onSitChair={(seat) => sitInChair(seat)} onSelectParticipant={(id) => setSelectedParticipantId(id)} onAimPoint={(point) => { aimPointRef.current = point; }} cameraMode={cameraMode} cameraYaw={cameraYaw} cameraPitch={cameraPitch} cameraDistance={cameraDistance} /></div>
+      <div className="canvas-wrap" ref={canvasWrapRef} onPointerDown={(event) => { if (!(event.target instanceof HTMLCanvasElement)) return; if (document.pointerLockElement !== event.target) { void event.target.requestPointerLock(); return; } if (event.button === 0) { event.preventDefault(); socialAction('throw_popcorn'); } else if (event.button === 2) { event.preventDefault(); socialAction('throw_tomato'); } }} onContextMenu={(event) => event.preventDefault()} onWheel={(event) => { if (cameraMode !== 'third') return; event.preventDefault(); setCameraDistance((current) => Math.max(1.8, Math.min(8, current + (event.deltaY > 0 ? 0.45 : -0.45)))); }}><CinemaCanvas participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} nearbySeat={nearestSeatDistance <= 1.3 && pose === 'standing' ? nearestSeat : null} onSitChair={(seat) => sitInChair(seat)} onSelectParticipant={(id) => setSelectedParticipantId(id)} onAimPoint={(point) => { aimPointRef.current = point; }} aimPointGetterRef={aimPointGetterRef} cameraMode={cameraMode} cameraYaw={cameraYaw} cameraPitch={cameraPitch} cameraDistance={cameraDistance} /></div>
       {screenMode === 'cinema' && <section className="cinema-chat-overlay" aria-label="Chat ao vivo"><div className="cinema-chat-heading"><strong>Chat ao vivo</strong><span>● AO VIVO</span></div><div className="cinema-chat-messages" aria-live="polite">{messages.length ? messages.slice(-30).map((chat) => <article className="cinema-chat-message" key={chat.id}><strong>{chat.displayName}{chat.role === 'owner' ? ' 👑' : ''}</strong><span>{chat.message}</span></article>) : <p>As mensagens aparecerão aqui.</p>}</div><form className="cinema-chat-form" onSubmit={sendChat}><input value={message} onChange={(event) => setMessage(event.target.value)} maxLength={500} placeholder="Enviar mensagem…" aria-label="Mensagem do chat ao vivo" /><button type="submit" disabled={!message.trim()} aria-label="Enviar mensagem">↑</button></form></section>}
       <div className="movement-help">WASD / setas: andar · Espaço: pular · E: interagir · Shift: correr · Ctrl: agachar · Ctrl duas vezes: deitar</div>
       <div className="mobile-controls" aria-label="Controles de movimentação">
