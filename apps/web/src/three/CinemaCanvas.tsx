@@ -233,12 +233,13 @@ function ThrownSnack({ effect, x, z }: { effect: SocialEffect; x: number; z: num
   useFrame(() => {
     const ageMs = Date.now() - effect.sentAt;
     const t = Math.max(0, Math.min(1, ageMs / flightMs));
+    const start = new THREE.Vector3(x, 1.18, z);
     if (projectile.current) {
-      const start = new THREE.Vector3(x, 1.18, z);
       projectile.current.position.set(THREE.MathUtils.lerp(start.x, hit.x, t), THREE.MathUtils.lerp(start.y, hit.y, t) + Math.sin(t * Math.PI) * 0.5, THREE.MathUtils.lerp(start.z, hit.z, t));
       projectile.current.rotation.set(t * 7, t * 11, t * 5);
-      projectile.current.visible = ageMs < flightMs;
-      projectile.current.scale.setScalar(isTomato ? 0.15 : 0.085);
+      // O tomate viaja como uma peça; a pipoca já sai como várias bolinhas.
+      projectile.current.visible = isTomato && ageMs < flightMs;
+      projectile.current.scale.setScalar(0.15);
     }
     if (stain.current) {
       const afterHit = (ageMs - flightMs) / 1000;
@@ -250,7 +251,20 @@ function ThrownSnack({ effect, x, z }: { effect: SocialEffect; x: number; z: num
         material.opacity = afterHit > 3 ? Math.max(0, (3.6 - afterHit) / 0.6) : 0.92;
       });
     }
-    if (!isTomato && ageMs >= flightMs && ageMs < flightMs + 3200) {
+    if (!isTomato && ageMs < flightMs) {
+      // Pequenas bolinhas visíveis durante todo o arremesso, abrindo levemente em leque.
+      kernels.current.forEach((mesh, i) => {
+        if (!mesh) return;
+        const spread = t * 0.12;
+        mesh.position.set(
+          THREE.MathUtils.lerp(start.x, hit.x, t) + (kernelStarts[i]?.x ?? 0) * (0.25 + t) + (kernelStarts[i]?.x ?? 0) * spread,
+          THREE.MathUtils.lerp(start.y, hit.y, t) + Math.sin(t * Math.PI) * 0.5 + (kernelStarts[i]?.y ?? 0) * t,
+          THREE.MathUtils.lerp(start.z, hit.z, t) + (kernelStarts[i]?.z ?? 0) * (0.25 + t) + (kernelStarts[i]?.z ?? 0) * spread,
+        );
+        mesh.visible = true;
+        (mesh.material as THREE.MeshBasicMaterial).opacity = 1;
+      });
+    } else if (!isTomato && ageMs < flightMs + 3200) {
       const elapsed = Math.max(0, (ageMs - flightMs) / 1000);
       if (!impactStarted.current) {
         impactStarted.current = true;
