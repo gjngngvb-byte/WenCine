@@ -238,7 +238,9 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
     <primitive object={trajectoryObject} ref={trajectoryLine} visible={false} userData={{ isSocialEffect: true }} />
     {socialEffects.filter((effect) => ['throw_popcorn', 'throw_tomato'].includes(effect.action) && Date.now() - effect.sentAt < 4300).map((effect) => {
       const thrower = participants.find((person) => person.id === effect.actorId) ?? (effect.actorId === selfId ? localPerson : undefined);
-      return thrower ? <ThrownSnack key={effect.id} effect={effect} x={thrower.x} z={thrower.z} rotation={thrower.rotation} /> : null;
+      return thrower && effect.hitX !== undefined && effect.hitY !== undefined && effect.hitZ !== undefined
+        ? <ThrownSnack key={effect.id} effect={effect} x={thrower.x} z={thrower.z} rotation={thrower.rotation} />
+        : null;
     })}
   </>;
 }
@@ -248,7 +250,7 @@ function ThrownSnack({ effect, x, z, rotation }: { effect: SocialEffect; x: numb
   const kernels = useRef<(THREE.Mesh | null)[]>([]);
   const physics = useRef<Array<{ vx: number; vy: number; vz: number }>>([]);
   const impactStarted = useRef(false);
-  const hit = useMemo(() => new THREE.Vector3(effect.hitX ?? 0, effect.hitY ?? 0, effect.hitZ ?? -10.2), [effect.hitX, effect.hitY, effect.hitZ]);
+  const hit = useMemo(() => new THREE.Vector3(effect.hitX!, effect.hitY!, effect.hitZ!), [effect.hitX, effect.hitY, effect.hitZ]);
   const normal = useMemo(() => new THREE.Vector3(effect.normalX ?? 0, effect.normalY ?? 1, effect.normalZ ?? 0).normalize(), [effect.normalX, effect.normalY, effect.normalZ]);
   const flightMs = 520;
   const isTomato = effect.action === 'throw_tomato';
