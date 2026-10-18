@@ -195,11 +195,11 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
     {participants.filter((person) => person.id !== selfId && person.connected).map((person) => <Avatar key={person.id} person={person} socialEffects={socialEffects} allPeople={[localPerson, ...participants.filter((candidate) => candidate.id !== selfId && candidate.connected)]} onSelectParticipant={onSelectParticipant} />)}
     {socialEffects.filter((effect) => ['throw_popcorn', 'throw_tomato'].includes(effect.action) && Date.now() - effect.sentAt < 4300).map((effect) => {
       const thrower = participants.find((person) => person.id === effect.actorId) ?? (effect.actorId === selfId ? localPerson : undefined);
-      return thrower ? <ThrownSnack key={effect.id} effect={effect} x={thrower.x} z={thrower.z} /> : null;
+      return thrower ? <ThrownSnack key={effect.id} effect={effect} x={thrower.x} z={thrower.z} rotation={thrower.rotation} /> : null;
     })}
   </>;
 }
-function ThrownSnack({ effect, x, z }: { effect: SocialEffect; x: number; z: number }) {
+function ThrownSnack({ effect, x, z, rotation }: { effect: SocialEffect; x: number; z: number; rotation: number }) {
   const projectile = useRef<THREE.Mesh>(null);
   const stain = useRef<THREE.Group>(null);
   const kernels = useRef<(THREE.Mesh | null)[]>([]);
@@ -236,9 +236,18 @@ function ThrownSnack({ effect, x, z }: { effect: SocialEffect; x: number; z: num
   useFrame(() => {
     const ageMs = Date.now() - effect.sentAt;
     const t = Math.max(0, Math.min(1, ageMs / flightMs));
-    const start = new THREE.Vector3(x, 1.18, z);
+    // Lança da frente do avatar e descreve um arco balístico até o ponto
+    // atingido pela mira da câmera, em vez de deslizar em linha quase reta.
+    const start = new THREE.Vector3(
+      x + Math.sin(rotation) * 0.28,
+      1.3,
+      z + Math.cos(rotation) * 0.28,
+    );
+    const horizontalDistance = Math.hypot(hit.x - start.x, hit.z - start.z);
+    const arcHeight = Math.min(2.4, Math.max(0.3, horizontalDistance * 0.1));
+    const arc = 4 * arcHeight * t * (1 - t);
     if (projectile.current) {
-      projectile.current.position.set(THREE.MathUtils.lerp(start.x, hit.x, t), THREE.MathUtils.lerp(start.y, hit.y, t) + Math.sin(t * Math.PI) * 0.5, THREE.MathUtils.lerp(start.z, hit.z, t));
+      projectile.current.position.set(THREE.MathUtils.lerp(start.x, hit.x, t), THREE.MathUtils.lerp(start.y, hit.y, t) + arc, THREE.MathUtils.lerp(start.z, hit.z, t));
       projectile.current.rotation.set(t * 7, t * 11, t * 5);
       // O tomate viaja como uma peça; a pipoca já sai como várias bolinhas.
       projectile.current.visible = isTomato && ageMs < flightMs;
@@ -261,7 +270,7 @@ function ThrownSnack({ effect, x, z }: { effect: SocialEffect; x: number; z: num
         const spread = t * 0.12;
         mesh.position.set(
           THREE.MathUtils.lerp(start.x, hit.x, t) + (kernelStarts[i]?.x ?? 0) * (0.25 + t) + (kernelStarts[i]?.x ?? 0) * spread,
-          THREE.MathUtils.lerp(start.y, hit.y, t) + Math.sin(t * Math.PI) * 0.5 + (kernelStarts[i]?.y ?? 0) * t,
+          THREE.MathUtils.lerp(start.y, hit.y, t) + arc + (kernelStarts[i]?.y ?? 0) * t,
           THREE.MathUtils.lerp(start.z, hit.z, t) + (kernelStarts[i]?.z ?? 0) * (0.25 + t) + (kernelStarts[i]?.z ?? 0) * spread,
         );
         mesh.visible = true;
