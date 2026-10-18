@@ -305,8 +305,8 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
         if (target.socketId) io.to(target.socketId).emit('social:request', { requestId: id, fromId: actor.id, fromName: actor.displayName, action: requestedAction });
         return;
       }
-      if (action === 'share_popcorn' || action === 'slap' || action === 'throw_popcorn' || action === 'throw_tomato' || action === 'steal_popcorn') {
-        if (action !== 'throw_popcorn' && action !== 'throw_tomato' && (!target || !target.connected || target.id === actor.id || !closeEnough(actor, target))) return;
+      if (action === 'share_popcorn' || action === 'slap' || action === 'throw_popcorn' || action === 'throw_tomato' || action === 'throw_egg' || action === 'steal_popcorn') {
+        if (action !== 'throw_popcorn' && action !== 'throw_tomato' && action !== 'throw_egg' && (!target || !target.connected || target.id === actor.id || !closeEnough(actor, target))) return;
         if (target?.displayName === 'Bot de Teste') { notifyAction(target, action); return; }
         const seatedTogether = Boolean(target && actor.pose === 'sitting_chair' && target.pose === 'sitting_chair' && Math.hypot(actor.x - target.x, actor.z - target.z) <= 1.85);
         if (target && !seatedTogether && (action === 'slap' || action === 'steal_popcorn')) {
