@@ -9,7 +9,7 @@ type Participant = {
   id: string; displayName: string; color: string; accessory: string; expression: string;
   x: number; z: number; rotation: number; connected: boolean; pose?: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; holdingHandsWith?: string;
 };
-type SocialEffect = { id: string; action: string; actorId: string; targetId?: string; sentAt: number; hitX?: number; hitY?: number; hitZ?: number; normalX?: number; normalY?: number; normalZ?: number };
+type SocialEffect = { id: string; action: string; actorId: string; targetId?: string; sentAt: number; receivedAt?: number; startX?: number; startY?: number; startZ?: number; hitX?: number; hitY?: number; hitZ?: number; normalX?: number; normalY?: number; normalZ?: number };
 type CameraMode = 'third' | 'first';
 type AimPoint = { x: number; y: number; z: number; nx: number; ny: number; nz: number };
 type AimPointGetterRef = { current: ((yaw: number, pitch: number) => AimPoint | null) | null };
@@ -195,9 +195,9 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
         material.color.set(aimingAction === 'throw_tomato' ? '#ff5757' : '#fff2b3');
         const target = getAimPoint(cameraYaw, cameraPitch);
         const start = new THREE.Vector3(
-          position.x + Math.sin(position.rotation) * 0.28,
-          1.3,
-          position.z + Math.cos(position.rotation) * 0.28,
+          position.x + Math.sin(position.rotation) * 0.3,
+          1.12,
+          position.z + Math.cos(position.rotation) * 0.3,
         );
         const end = new THREE.Vector3(target.x, target.y, target.z);
         const horizontalDistance = Math.hypot(end.x - start.x, end.z - start.z);
@@ -236,24 +236,25 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
     {cameraMode !== 'first' && <Avatar person={localPerson} local onSelectParticipant={onSelectParticipant} socialEffects={socialEffects} allPeople={[localPerson, ...participants.filter((person) => person.id !== selfId && person.connected)]} />}
     {participants.filter((person) => person.id !== selfId && person.connected).map((person) => <Avatar key={person.id} person={person} socialEffects={socialEffects} allPeople={[localPerson, ...participants.filter((candidate) => candidate.id !== selfId && candidate.connected)]} onSelectParticipant={onSelectParticipant} />)}
     <primitive object={trajectoryObject} ref={trajectoryLine} visible={false} userData={{ isSocialEffect: true }} />
-    {socialEffects.filter((effect) => ['throw_popcorn', 'throw_tomato'].includes(effect.action) && Date.now() - effect.sentAt < 4300).map((effect) => {
-      const thrower = participants.find((person) => person.id === effect.actorId) ?? (effect.actorId === selfId ? localPerson : undefined);
-      return thrower && effect.hitX !== undefined && effect.hitY !== undefined && effect.hitZ !== undefined
-        ? <ThrownSnack key={effect.id} effect={effect} x={thrower.x} z={thrower.z} rotation={thrower.rotation} />
-        : null;
-    })}
+    {socialEffects.filter((effect) => ['throw_popcorn', 'throw_tomato', 'throw_egg'].includes(effect.action) && Date.now() - (effect.receivedAt ?? effect.sentAt) < 5000).map((effect) =>
+      effect.startX !== undefined && effect.startY !== undefined && effect.startZ !== undefined && effect.hitX !== undefined && effect.hitY !== undefined && effect.hitZ !== undefined
+        ? <ThrownSnack key={effect.id} effect={effect} />
+        : null
+    )}
   </>;
 }
-function ThrownSnack({ effect, x, z, rotation }: { effect: SocialEffect; x: number; z: number; rotation: number }) {
+function ThrownSnack({ effect }: { effect: SocialEffect }) {
   const projectile = useRef<THREE.Mesh>(null);
   const stain = useRef<THREE.Group>(null);
   const kernels = useRef<(THREE.Mesh | null)[]>([]);
   const physics = useRef<Array<{ vx: number; vy: number; vz: number }>>([]);
   const impactStarted = useRef(false);
+  const start = useMemo(() => new THREE.Vector3(effect.startX!, effect.startY!, effect.startZ!), [effect.startX, effect.startY, effect.startZ]);
   const hit = useMemo(() => new THREE.Vector3(effect.hitX!, effect.hitY!, effect.hitZ!), [effect.hitX, effect.hitY, effect.hitZ]);
   const normal = useMemo(() => new THREE.Vector3(effect.normalX ?? 0, effect.normalY ?? 1, effect.normalZ ?? 0).normalize(), [effect.normalX, effect.normalY, effect.normalZ]);
-  const flightMs = 520;
+  const flightMs = 900;
   const isTomato = effect.action === 'throw_tomato';
+  const isEgg = effect.action === 'throw_egg';
   const seed = useMemo(() => {
     let value = 0;
     for (const char of effect.id) value = (value * 31 + char.charCodeAt(0)) >>> 0;
@@ -276,39 +277,33 @@ function ThrownSnack({ effect, x, z, rotation }: { effect: SocialEffect; x: numb
     x: i === 0 ? 0 : (seed() - 0.5) * 0.34,
     y: i === 0 ? 0 : (seed() - 0.5) * 0.34,
     r: i === 0 ? 0.17 : 0.045 + seed() * 0.07,
-    color: i % 2 ? '#dc2626' : '#ef4444',
-  })), [seed]);
+    color: isTomato ? (i % 2 ? '#dc2626' : '#ef4444') : (i % 2 ? '#fff1a8' : '#facc15'),
+  })), [seed, isTomato]);
   useFrame(() => {
-    const ageMs = Date.now() - effect.sentAt;
+    const ageMs = Date.now() - (effect.receivedAt ?? effect.sentAt);
     const t = Math.max(0, Math.min(1, ageMs / flightMs));
     // Lança da frente do avatar e descreve um arco balístico até o ponto
     // atingido pela mira da câmera, em vez de deslizar em linha quase reta.
-    const start = new THREE.Vector3(
-      x + Math.sin(rotation) * 0.28,
-      1.3,
-      z + Math.cos(rotation) * 0.28,
-    );
     const horizontalDistance = Math.hypot(hit.x - start.x, hit.z - start.z);
     const arcHeight = Math.min(2.4, Math.max(0.3, horizontalDistance * 0.1));
     const arc = 4 * arcHeight * t * (1 - t);
     if (projectile.current) {
       projectile.current.position.set(THREE.MathUtils.lerp(start.x, hit.x, t), THREE.MathUtils.lerp(start.y, hit.y, t) + arc, THREE.MathUtils.lerp(start.z, hit.z, t));
       projectile.current.rotation.set(t * 7, t * 11, t * 5);
-      // O tomate viaja como uma peça; a pipoca já sai como várias bolinhas.
-      projectile.current.visible = isTomato && ageMs < flightMs;
-      projectile.current.scale.setScalar(0.15);
+      projectile.current.visible = (isTomato || isEgg) && ageMs < flightMs;
+      projectile.current.scale.set(isEgg ? 0.13 : 0.22, isEgg ? 0.18 : 0.22, isEgg ? 0.13 : 0.22);
     }
     if (stain.current) {
       const afterHit = (ageMs - flightMs) / 1000;
       stain.current.position.copy(hit.clone().addScaledVector(normal, 0.012));
       stain.current.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
-      stain.current.visible = isTomato && afterHit >= 0 && afterHit < 3.6;
+      stain.current.visible = (isTomato || isEgg) && afterHit >= 0 && afterHit < 3.6;
       stain.current.children.forEach((child) => {
         const material = (child as THREE.Mesh).material as THREE.MeshBasicMaterial;
         material.opacity = afterHit > 3 ? Math.max(0, (3.6 - afterHit) / 0.6) : 0.92;
       });
     }
-    if (!isTomato && ageMs < flightMs) {
+    if (!isTomato && !isEgg && ageMs < flightMs) {
       // Pequenas bolinhas visíveis durante todo o arremesso, abrindo levemente em leque.
       kernels.current.forEach((mesh, i) => {
         if (!mesh) return;
@@ -321,7 +316,7 @@ function ThrownSnack({ effect, x, z, rotation }: { effect: SocialEffect; x: numb
         mesh.visible = true;
         (mesh.material as THREE.MeshBasicMaterial).opacity = 1;
       });
-    } else if (!isTomato && ageMs < flightMs + 3200) {
+    } else if (!isTomato && !isEgg && ageMs < flightMs + 3200) {
       const elapsed = Math.max(0, (ageMs - flightMs) / 1000);
       if (!impactStarted.current) {
         impactStarted.current = true;
@@ -357,16 +352,16 @@ function ThrownSnack({ effect, x, z, rotation }: { effect: SocialEffect; x: numb
   });
   const stainQuaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
   return <>
-    <mesh ref={projectile} position={[x, 1.18, z]} castShadow userData={{ isSocialEffect: true }}>
-      <sphereGeometry args={[1, 12, 10]} /><meshStandardMaterial color={isTomato ? '#ef4444' : '#fffdf5'} roughness={0.55} />
+    <mesh ref={projectile} position={[start.x, start.y, start.z]} castShadow userData={{ isSocialEffect: true }}>
+      <sphereGeometry args={[1, 16, 12]} /><meshStandardMaterial color={isTomato ? '#ef4444' : isEgg ? '#fff7e6' : '#fffdf5'} roughness={0.55} />
     </mesh>
     <group ref={stain} position={[hit.x, hit.y, hit.z]} quaternion={stainQuaternion} userData={{ isSocialEffect: true }}>
       {stainParts.map((part, i) => <mesh key={i} position={[part.x, part.y, 0]} renderOrder={4}>
         <circleGeometry args={[part.r, 14]} /><meshBasicMaterial color={part.color} transparent opacity={0.92} depthWrite={false} side={THREE.DoubleSide} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
       </mesh>)}
     </group>
-    {!isTomato && kernelStarts.map((start, i) => <mesh key={i} ref={(node) => { kernels.current[i] = node; }} position={[hit.x + start.x, hit.y + start.y, hit.z + start.z]} visible={false} userData={{ isSocialEffect: true }}>
-      <sphereGeometry args={[0.035 + (i % 3) * 0.006, 8, 6]} /><meshBasicMaterial color="#fffdf5" transparent opacity={1} />
+    {!isTomato && !isEgg && kernelStarts.map((offset, i) => <mesh key={i} ref={(node) => { kernels.current[i] = node; }} position={[hit.x + offset.x, hit.y + offset.y, hit.z + offset.z]} visible={false} userData={{ isSocialEffect: true }}>
+      <sphereGeometry args={[0.06 + (i % 3) * 0.012, 10, 8]} /><meshBasicMaterial color="#fff4c2" transparent opacity={1} />
     </mesh>)}
   </>;
 }
