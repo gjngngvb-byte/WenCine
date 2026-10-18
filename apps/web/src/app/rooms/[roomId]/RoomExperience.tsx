@@ -98,7 +98,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
         sit: 'sentou no chão', sit_chair: 'sentou na cadeira', stand: 'levantou', fall: 'caiu', hold_hands: 'está de mãos dadas', hug: 'abraçou',
         release_hand: 'soltou as mãos', share_popcorn: 'dividiu a pipoca', kiss: 'deu um beijo',
         peck: 'deu um selinho', slap: 'deu um tapinha', throw_popcorn: 'jogou pipoca',
-        throw_tomato: 'jogou um tomate', steal_popcorn: 'roubou pipoca', handsy: 'fez carinho',
+        throw_tomato: 'jogou um tomate', throw_egg: 'jogou ovos', steal_popcorn: 'roubou pipoca', handsy: 'fez carinho',
       };
       const actor = participants.find((person) => person.id === effect.actorId);
       setSocialStatus((actor?.displayName ?? (effect.actorId === selfId ? 'Você' : 'Alguém')) + ' ' + (labels[effect.action] ?? effect.action) + '.');
