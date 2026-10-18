@@ -87,7 +87,7 @@ function Avatar({ person, local = false, socialEffects, allPeople, onSelectParti
     if (leftLeg.current) leftLeg.current.rotation.x = person.pose === 'sitting_chair' ? 0 : sitting ? -1.15 : fallen ? 0.8 : -swing * 0.8;
     if (rightLeg.current) rightLeg.current.rotation.x = person.pose === 'sitting_chair' ? 0 : sitting ? -1.15 : fallen ? -0.35 : swing * 0.8;
   });
-  return <group ref={group} userData={local ? { isLocalAvatar: true } : undefined} position={[person.x, 0, person.z]} onClick={(event) => { if (onSelectParticipant) { event.stopPropagation(); onSelectParticipant(person.id); } }}>
+  return <group ref={group} userData={local ? { isLocalAvatar: true } : {}} position={[person.x, 0, person.z]} onClick={(event) => { if (onSelectParticipant) { event.stopPropagation(); onSelectParticipant(person.id); } }}>
     <mesh position={[0, 0.57, 0]} castShadow><capsuleGeometry args={[0.23, 0.34, 5, 10]} /><meshStandardMaterial color={bodyColor} roughness={0.58} /></mesh>
     <mesh position={[0, 0.33, 0]} castShadow><sphereGeometry args={[0.2, 16, 12]} /><meshStandardMaterial color={bodyColor} roughness={0.7} /></mesh>
     <group ref={leftArm} position={[-0.25, 0.67, 0]}><mesh position={[0, -0.18, 0]} rotation={[0, 0, -0.12]} castShadow><capsuleGeometry args={[0.075, 0.28, 4, 8]} /><meshStandardMaterial color={bodyColor} /></mesh><mesh position={[0, -0.34, 0.015]}><sphereGeometry args={[0.075, 10, 8]} /><meshStandardMaterial color="#f1d3c3" /></mesh></group>
@@ -242,7 +242,7 @@ function ThrownSnack({ effect, x, z }: { effect: SocialEffect; x: number; z: num
         const kt = Math.max(0, elapsed - (i % 3) * 0.025);
         let y = hit.y + 0.035 + velocity.vy * kt - 4.9 * kt * kt;
         if (y < 0.045) { y = 0.045 + Math.abs(Math.sin(kt * 5 + i)) * 0.025; velocity.vx *= 0.985; velocity.vz *= 0.985; }
-        mesh.position.set(hit.x + kernelStarts[i].x + velocity.vx * kt, Math.max(0.045, y), hit.z + kernelStarts[i].z + velocity.vz * kt);
+        mesh.position.set(hit.x + (kernelStarts[i]?.x ?? 0) + velocity.vx * kt, Math.max(0.045, y), hit.z + (kernelStarts[i]?.z ?? 0) + velocity.vz * kt);
         mesh.visible = ageMs < flightMs + 3000;
         (mesh.material as THREE.MeshBasicMaterial).opacity = ageMs > flightMs + 2450 ? Math.max(0, (flightMs + 3000 - ageMs) / 550) : 1;
       });
