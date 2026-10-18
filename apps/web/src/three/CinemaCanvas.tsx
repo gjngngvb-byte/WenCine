@@ -118,14 +118,15 @@ function Avatar({ person, local = false, socialEffects, allPeople, onSelectParti
     <mesh position={[0, 1.55, 0]}><sphereGeometry args={[0.035, 8, 8]} /><meshBasicMaterial color={local ? '#34d399' : '#c4b5fd'} /></mesh>
   </group>;
 }
-function CinemaScene({ participants, selfId, position, color, accessory, expression, pose, socialEffects, nearbySeat, onSitChair, onSelectParticipant, onAimPoint, aimPointGetterRef, cameraMode, cameraYaw, cameraPitch, cameraDistance }: {
+function CinemaScene({ participants, selfId, position, color, accessory, expression, pose, socialEffects, aimingAction, nearbySeat, onSitChair, onSelectParticipant, onAimPoint, aimPointGetterRef, cameraMode, cameraYaw, cameraPitch, cameraDistance }: {
   participants: Participant[]; selfId: string; position: { x: number; z: number; rotation: number };
-  color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; socialEffects: SocialEffect[];
+  color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; socialEffects: SocialEffect[]; aimingAction: 'throw_popcorn' | 'throw_tomato' | null;
   nearbySeat: { x: number; z: number } | null; onSitChair: ((seat: { x: number; z: number }) => void) | undefined; onSelectParticipant?: ((participantId: string) => void) | undefined; onAimPoint?: ((point: AimPoint) => void) | undefined; aimPointGetterRef: AimPointGetterRef; cameraMode: CameraMode; cameraYaw: number; cameraPitch: number; cameraDistance: number;
 }) {
   const { camera, scene } = useThree();
   const raycaster = useMemo(() => new THREE.Raycaster(), []);
   const aimPointCallback = useRef(onAimPoint);
+  const trajectoryLine = useRef<THREE.Line>(null);
   aimPointCallback.current = onAimPoint;
   const getAimPoint = useCallback((yaw = cameraYaw, pitch = cameraPitch): AimPoint => {
     // Recalcula a mira no instante do arremesso, usando a câmera já atualizada.
@@ -185,6 +186,31 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
       camera.lookAt(focus.clone().add(viewDirection.multiplyScalar(5)));
     }
     aimPointCallback.current?.(getAimPoint(cameraYaw, cameraPitch));
+    if (trajectoryLine.current) {
+      const line = trajectoryLine.current;
+      line.visible = Boolean(aimingAction);
+      if (aimingAction) {
+        const target = getAimPoint(cameraYaw, cameraPitch);
+        const start = new THREE.Vector3(
+          position.x + Math.sin(position.rotation) * 0.28,
+          1.3,
+          position.z + Math.cos(position.rotation) * 0.28,
+        );
+        const end = new THREE.Vector3(target.x, target.y, target.z);
+        const horizontalDistance = Math.hypot(end.x - start.x, end.z - start.z);
+        const arcHeight = Math.min(2.4, Math.max(0.3, horizontalDistance * 0.1));
+        const points: THREE.Vector3[] = [];
+        for (let i = 0; i <= 32; i += 1) {
+          const t = i / 32;
+          points.push(new THREE.Vector3(
+            THREE.MathUtils.lerp(start.x, end.x, t),
+            THREE.MathUtils.lerp(start.y, end.y, t) + 4 * arcHeight * t * (1 - t),
+            THREE.MathUtils.lerp(start.z, end.z, t),
+          ));
+        }
+        line.geometry.setFromPoints(points);
+      }
+    }
   });
   const localPerson: Participant = { id: selfId || 'local', displayName: 'Você', color, accessory, expression, ...position, connected: true, pose };
   return <>
@@ -206,6 +232,10 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
     {Array.from({ length: 9 }, (_, i) => <pointLight key={i} position={[(i - 4) * 2.2, 5.5, 3]} color={i % 2 ? '#8b5cf6' : '#60a5fa'} intensity={1.2} distance={4} />)}
     {cameraMode !== 'first' && <Avatar person={localPerson} local onSelectParticipant={onSelectParticipant} socialEffects={socialEffects} allPeople={[localPerson, ...participants.filter((person) => person.id !== selfId && person.connected)]} />}
     {participants.filter((person) => person.id !== selfId && person.connected).map((person) => <Avatar key={person.id} person={person} socialEffects={socialEffects} allPeople={[localPerson, ...participants.filter((candidate) => candidate.id !== selfId && candidate.connected)]} onSelectParticipant={onSelectParticipant} />)}
+    <line ref={trajectoryLine} visible={false} userData={{ isSocialEffect: true }}>
+      <bufferGeometry />
+      <lineBasicMaterial color={aimingAction === 'throw_tomato' ? '#ff5757' : '#fff2b3'} transparent opacity={0.95} depthTest={false} />
+    </line>
     {socialEffects.filter((effect) => ['throw_popcorn', 'throw_tomato'].includes(effect.action) && Date.now() - effect.sentAt < 4300).map((effect) => {
       const thrower = participants.find((person) => person.id === effect.actorId) ?? (effect.actorId === selfId ? localPerson : undefined);
       return thrower ? <ThrownSnack key={effect.id} effect={effect} x={thrower.x} z={thrower.z} rotation={thrower.rotation} /> : null;
@@ -338,12 +368,12 @@ function ThrownSnack({ effect, x, z, rotation }: { effect: SocialEffect; x: numb
     </mesh>)}
   </>;
 }
-export function CinemaCanvas({ participants, selfId, position, color, accessory, expression, pose, socialEffects, nearbySeat, onSitChair, onSelectParticipant, onAimPoint, aimPointGetterRef, cameraMode, cameraYaw, cameraPitch, cameraDistance }: {
+export function CinemaCanvas({ participants, selfId, position, color, accessory, expression, pose, socialEffects, aimingAction, nearbySeat, onSitChair, onSelectParticipant, onAimPoint, aimPointGetterRef, cameraMode, cameraYaw, cameraPitch, cameraDistance }: {
   participants: Participant[]; selfId: string; position: { x: number; z: number; rotation: number };
-  color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; socialEffects: SocialEffect[];
+  color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; socialEffects: SocialEffect[]; aimingAction: 'throw_popcorn' | 'throw_tomato' | null;
   nearbySeat: { x: number; z: number } | null; onSitChair: ((seat: { x: number; z: number }) => void) | undefined; onSelectParticipant?: ((participantId: string) => void) | undefined; onAimPoint?: ((point: AimPoint) => void) | undefined; aimPointGetterRef: AimPointGetterRef; cameraMode: CameraMode; cameraYaw: number; cameraPitch: number; cameraDistance: number;
 }) {
   return <Canvas camera={{ position: [0, 5.5, 10], fov: 54 }} dpr={[1, 1.35]} shadows fallback={<p>Este dispositivo não consegue renderizar a cena 3D.</p>}>
-    <CinemaScene participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} nearbySeat={nearbySeat} onSitChair={onSitChair} onSelectParticipant={onSelectParticipant} onAimPoint={onAimPoint} aimPointGetterRef={aimPointGetterRef} cameraMode={cameraMode} cameraYaw={cameraYaw} cameraPitch={cameraPitch} cameraDistance={cameraDistance} />
+    <CinemaScene participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} aimingAction={aimingAction} nearbySeat={nearbySeat} onSitChair={onSitChair} onSelectParticipant={onSelectParticipant} onAimPoint={onAimPoint} aimPointGetterRef={aimPointGetterRef} cameraMode={cameraMode} cameraYaw={cameraYaw} cameraPitch={cameraPitch} cameraDistance={cameraDistance} />
   </Canvas>;
 }
