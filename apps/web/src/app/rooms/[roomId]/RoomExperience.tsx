@@ -46,7 +46,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null);
   const [pendingRequest, setPendingRequest] = useState<{ requestId: string; fromId: string; fromName: string; action: string } | null>(null);
   const [socialStatus, setSocialStatus] = useState('');
-  const [socialEffects, setSocialEffects] = useState<Array<{ id: string; action: string; actorId: string; targetId?: string; sentAt: number; hitX?: number; hitY?: number; hitZ?: number; normalX?: number; normalY?: number; normalZ?: number }>>([]);
+  const [socialEffects, setSocialEffects] = useState<Array<{ id: string; action: string; actorId: string; targetId?: string; sentAt: number; receivedAt?: number; startX?: number; startY?: number; startZ?: number; hitX?: number; hitY?: number; hitZ?: number; normalX?: number; normalY?: number; normalZ?: number }>>([]);
   const [filmRating, setFilmRating] = useState(0);
   const [filmSummary, setFilmSummary] = useState<{ count: number; average: number } | null>(null);
   const lastMoveRef = useRef(0);
@@ -91,8 +91,9 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     socket.on('avatar:dragged', (next: { x: number; z: number; rotation: number }) => { positionRef.current = next; setPosition(next); });
     socket.on('social:request', (request: { requestId: string; fromId: string; fromName: string; action: string }) => setPendingRequest(request));
     socket.on('social:response', (response: { accepted: boolean; action?: string; message?: string }) => setSocialStatus(response.message ?? (response.accepted ? 'Interação aceita!' : 'A pessoa recusou a interação.')));
-    socket.on('social:effect', (effect: { id: string; action: string; actorId: string; targetId?: string; sentAt: number }) => {
-      setSocialEffects((current) => [...current.slice(-24), effect]);
+    socket.on('social:effect', (effect: { id: string; action: string; actorId: string; targetId?: string; sentAt: number; startX?: number; startY?: number; startZ?: number; hitX?: number; hitY?: number; hitZ?: number; normalX?: number; normalY?: number; normalZ?: number }) => {
+      const visibleEffect = { ...effect, receivedAt: Date.now() };
+      setSocialEffects((current) => [...current.slice(-24), visibleEffect]);
       const labels: Record<string, string> = {
         sit: 'sentou no chão', sit_chair: 'sentou na cadeira', stand: 'levantou', fall: 'caiu', hold_hands: 'está de mãos dadas', hug: 'abraçou',
         release_hand: 'soltou as mãos', share_popcorn: 'dividiu a pipoca', kiss: 'deu um beijo',
@@ -300,18 +301,16 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     setSocialStatus('Levante primeiro para poder deitar.');
   }
   function socialAction(action: string, extra: { targetId?: string | undefined; requestId?: string | undefined; rating?: number | undefined; seatX?: number | undefined; seatZ?: number | undefined; returnX?: number | undefined; returnZ?: number | undefined; returnRotation?: number | undefined } = {}) {
-    // O lançamento só acontece com um raycast novo da direção atual da câmera.
-    // Não reutiliza mira antiga nem inventa um destino quando o raycast não está disponível.
-    const isThrow = action === 'throw_popcorn' || action === 'throw_tomato';
+    const isThrow = action === 'throw_popcorn' || action === 'throw_tomato' || action === 'throw_egg';
     const aim = isThrow ? aimPointGetterRef.current?.(cameraYawRef.current, cameraPitchRef.current) : null;
     if (isThrow && !aim) {
-      setSocialStatus('Não foi possível calcular a mira atual. Tente mirar novamente.');
+      setSocialStatus('Não foi possível calcular a mira atual. Tente novamente.');
       return;
     }
-    const impact = aim
-      ? { hitX: aim.x, hitY: aim.y, hitZ: aim.z, normalX: aim.nx, normalY: aim.ny, normalZ: aim.nz }
-      : {};
-    socketRef.current?.emit('social:action', { action, ...impact, ...extra });
+    const current = positionRef.current;
+    const start = { startX: current.x + Math.sin(current.rotation) * 0.3, startY: 1.12, startZ: current.z + Math.cos(current.rotation) * 0.3 };
+    const impact = aim ? { hitX: aim.x, hitY: aim.y, hitZ: aim.z, normalX: aim.nx, normalY: aim.ny, normalZ: aim.nz } : {};
+    socketRef.current?.emit('social:action', { action, ...(isThrow ? { ...start, ...impact } : {}), ...extra });
     setSocialStatus(action === 'offer_hand' ? 'Pedido de mão enviado.' : '');
   }
   function sitInChair(seat: { x: number; z: number }) {
@@ -347,8 +346,8 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     {error && <p className="inline-error" role="status">{error}</p>}
     <div className="experience-layout"><section className="cinema-stage"><div className="stage-label"><span>WENCINE / SALA 3D</span><span>{participants.filter((p) => p.connected).length} participante(s)</span></div>
       <div className="screen-mode-toolbar"><button type="button" onClick={() => { document.exitPointerLock?.(); setScreenMode('normal'); }}>Sair da tela cheia</button></div>
-      <div className="camera-mode-hint" aria-live="polite">{aimingAction ? (aimingAction === 'throw_popcorn' ? '🍿 Mira de pipoca' : '🍅 Mira de tomate') + ' · clique novamente para lançar · mova a câmera para ajustar a trajetória' : (cameraMode === 'third' ? 'Terceira pessoa' : 'Primeira pessoa') + ' · clique no cinema e mova o mouse para olhar · TAB troca câmera · Esc libera o mouse'}</div>
-      <div className="canvas-wrap" ref={canvasWrapRef} onPointerDown={(event) => { if (!(event.target instanceof HTMLCanvasElement)) return; if (document.pointerLockElement !== event.target) { void event.target.requestPointerLock(); return; } const action = event.button === 0 ? 'throw_popcorn' : event.button === 2 ? 'throw_tomato' : null; if (!action) return; event.preventDefault(); if (aimingAction === action) { socialAction(action); setAimingAction(null); } else { setAimingAction(action); } }} onContextMenu={(event) => event.preventDefault()} onWheel={(event) => { if (cameraMode !== 'third') return; event.preventDefault(); setCameraDistance((current) => Math.max(1.8, Math.min(8, current + (event.deltaY > 0 ? 0.45 : -0.45)))); }}><CinemaCanvas participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} aimingAction={aimingAction} nearbySeat={nearestSeatDistance <= 1.3 && pose === 'standing' ? nearestSeat : null} onSitChair={(seat) => sitInChair(seat)} onSelectParticipant={(id) => setSelectedParticipantId(id)} onAimPoint={(point) => { aimPointRef.current = point; }} aimPointGetterRef={aimPointGetterRef} cameraMode={cameraMode} cameraYaw={cameraYaw} cameraPitch={cameraPitch} cameraDistance={cameraDistance} /></div>
+      <div className="camera-mode-hint" aria-live="polite">{aimingAction ? (aimingAction === 'throw_popcorn' ? '🍿 Segure o botão esquerdo: mire e solte para lançar' : '🍅 Segure o botão direito: mire e solte para lançar') : (cameraMode === 'third' ? 'Terceira pessoa' : 'Primeira pessoa') + ' · segure esquerdo = pipoca · segure direito = tomate · clique no scroll = ovos · TAB troca câmera · Esc libera o mouse'}</div>
+      <div className="canvas-wrap" ref={canvasWrapRef} onPointerDown={(event) => { if (!(event.target instanceof HTMLCanvasElement)) return; event.preventDefault(); if (document.pointerLockElement !== event.target) void event.target.requestPointerLock(); if (event.button === 1) { setAimingAction(null); socialAction('throw_egg'); return; } const action = event.button === 0 ? 'throw_popcorn' : event.button === 2 ? 'throw_tomato' : null; if (action) setAimingAction(action); }} onPointerUp={(event) => { const action = event.button === 0 ? 'throw_popcorn' : event.button === 2 ? 'throw_tomato' : null; if (action && aimingAction === action) { setAimingAction(null); socialAction(action); } }} onPointerCancel={() => setAimingAction(null)} onContextMenu={(event) => event.preventDefault()} onWheel={(event) => { if (cameraMode !== 'third') return; event.preventDefault(); setCameraDistance((current) => Math.max(1.8, Math.min(8, current + (event.deltaY > 0 ? 0.45 : -0.45)))); }}><CinemaCanvas participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} aimingAction={aimingAction} nearbySeat={nearestSeatDistance <= 1.3 && pose === 'standing' ? nearestSeat : null} onSitChair={(seat) => sitInChair(seat)} onSelectParticipant={(id) => setSelectedParticipantId(id)} onAimPoint={(point) => { aimPointRef.current = point; }} aimPointGetterRef={aimPointGetterRef} cameraMode={cameraMode} cameraYaw={cameraYaw} cameraPitch={cameraPitch} cameraDistance={cameraDistance} /></div>
       {screenMode === 'cinema' && <section className="cinema-chat-overlay" aria-label="Chat ao vivo"><div className="cinema-chat-heading"><strong>Chat ao vivo</strong><span>● AO VIVO</span></div><div className="cinema-chat-messages" aria-live="polite">{messages.length ? messages.slice(-30).map((chat) => <article className="cinema-chat-message" key={chat.id}><strong>{chat.displayName}{chat.role === 'owner' ? ' 👑' : ''}</strong><span>{chat.message}</span></article>) : <p>As mensagens aparecerão aqui.</p>}</div><form className="cinema-chat-form" onSubmit={sendChat}><input value={message} onChange={(event) => setMessage(event.target.value)} maxLength={500} placeholder="Enviar mensagem…" aria-label="Mensagem do chat ao vivo" /><button type="submit" disabled={!message.trim()} aria-label="Enviar mensagem">↑</button></form></section>}
       <div className="movement-help">WASD / setas: andar · Espaço: pular · E: interagir · Shift: correr · Ctrl: agachar · Ctrl duas vezes: deitar</div>
       <div className="mobile-controls" aria-label="Controles de movimentação">
