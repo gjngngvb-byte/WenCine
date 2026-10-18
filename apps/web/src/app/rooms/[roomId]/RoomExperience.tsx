@@ -41,7 +41,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   const cameraPitchRef = useRef(-0.12);
   const canvasWrapRef = useRef<HTMLDivElement | null>(null);
   const aimPointRef = useRef<{ x: number; y: number; z: number; nx: number; ny: number; nz: number } | null>(null);
-  const aimPointGetterRef = useRef<(() => { x: number; y: number; z: number; nx: number; ny: number; nz: number } | null) | null>(null);
+  const aimPointGetterRef = useRef<((yaw: number, pitch: number) => { x: number; y: number; z: number; nx: number; ny: number; nz: number } | null) | null>(null);
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null);
   const [pendingRequest, setPendingRequest] = useState<{ requestId: string; fromId: string; fromName: string; action: string } | null>(null);
   const [socialStatus, setSocialStatus] = useState('');
@@ -302,7 +302,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     // Obtém o ponto com um raycast novo no instante do clique; o valor por frame
     // fica apenas como fallback caso a cena ainda não tenha registrado o getter.
     const aim = (action === 'throw_popcorn' || action === 'throw_tomato')
-      ? aimPointGetterRef.current?.() ?? aimPointRef.current
+      ? aimPointGetterRef.current?.(cameraYawRef.current, cameraPitchRef.current) ?? aimPointRef.current
       : null;
     const impact = aim
       ? { hitX: aim.x, hitY: aim.y, hitZ: aim.z, normalX: aim.nx, normalY: aim.ny, normalZ: aim.nz }
