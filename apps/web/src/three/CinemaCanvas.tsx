@@ -2,7 +2,7 @@
 
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
-import { useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 
 type Participant = {
@@ -11,6 +11,8 @@ type Participant = {
 };
 type SocialEffect = { id: string; action: string; actorId: string; targetId?: string; sentAt: number; hitX?: number; hitY?: number; hitZ?: number; normalX?: number; normalY?: number; normalZ?: number };
 type CameraMode = 'third' | 'first';
+type AimPoint = { x: number; y: number; z: number; nx: number; ny: number; nz: number };
+type AimPointGetterRef = { current: ((yaw: number, pitch: number) => AimPoint | null) | null };
 function Seat({ position }: { position: [number, number, number] }) {
   // O encosto fica para trás do avatar; todos os assentos olham para a tela (-Z).
   return <group position={position} rotation={[0, Math.PI, 0]}>
@@ -116,15 +118,55 @@ function Avatar({ person, local = false, socialEffects, allPeople, onSelectParti
     <mesh position={[0, 1.55, 0]}><sphereGeometry args={[0.035, 8, 8]} /><meshBasicMaterial color={local ? '#34d399' : '#c4b5fd'} /></mesh>
   </group>;
 }
-function CinemaScene({ participants, selfId, position, color, accessory, expression, pose, socialEffects, nearbySeat, onSitChair, onSelectParticipant, onAimPoint, cameraMode, cameraYaw, cameraPitch, cameraDistance }: {
+function CinemaScene({ participants, selfId, position, color, accessory, expression, pose, socialEffects, aimingAction, nearbySeat, onSitChair, onSelectParticipant, onAimPoint, aimPointGetterRef, cameraMode, cameraYaw, cameraPitch, cameraDistance }: {
   participants: Participant[]; selfId: string; position: { x: number; z: number; rotation: number };
-  color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; socialEffects: SocialEffect[];
-  nearbySeat: { x: number; z: number } | null; onSitChair: ((seat: { x: number; z: number }) => void) | undefined; onSelectParticipant?: ((participantId: string) => void) | undefined; onAimPoint?: ((point: { x: number; y: number; z: number; nx: number; ny: number; nz: number }) => void) | undefined; cameraMode: CameraMode; cameraYaw: number; cameraPitch: number; cameraDistance: number;
+  color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; socialEffects: SocialEffect[]; aimingAction: 'throw_popcorn' | 'throw_tomato' | null;
+  nearbySeat: { x: number; z: number } | null; onSitChair: ((seat: { x: number; z: number }) => void) | undefined; onSelectParticipant?: ((participantId: string) => void) | undefined; onAimPoint?: ((point: AimPoint) => void) | undefined; aimPointGetterRef: AimPointGetterRef; cameraMode: CameraMode; cameraYaw: number; cameraPitch: number; cameraDistance: number;
 }) {
   const { camera, scene } = useThree();
   const raycaster = useMemo(() => new THREE.Raycaster(), []);
   const aimPointCallback = useRef(onAimPoint);
+  const trajectoryLine = useRef<THREE.Line>(null);
+  const trajectoryObject = useMemo(() => new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: '#fff2b3', transparent: true, opacity: 0.95, depthTest: false })), []);
   aimPointCallback.current = onAimPoint;
+  const getAimPoint = useCallback((yaw = cameraYaw, pitch = cameraPitch): AimPoint => {
+    // Recalcula a mira no instante do arremesso, usando a câmera já atualizada.
+    // Não depende do último ponto salvo pelo frame anterior.
+    scene.updateMatrixWorld(true);
+    camera.updateWorldMatrix(true, false);
+    const origin = camera.getWorldPosition(new THREE.Vector3());
+    // Use the exact yaw/pitch that drives the mouse-look controller instead of
+    // relying on the camera quaternion from the previous rendered frame.
+    // The same angles drive camera.lookAt in both camera modes.
+    const direction = new THREE.Vector3(
+      Math.sin(yaw) * Math.cos(pitch),
+      Math.sin(pitch),
+      -Math.cos(yaw) * Math.cos(pitch),
+    ).normalize();
+    raycaster.set(origin, direction);
+    raycaster.near = 0.05;
+    raycaster.far = 30;
+    const hit = raycaster.intersectObjects(scene.children, true).find((item) => {
+      let node: THREE.Object3D | null = item.object;
+      while (node) {
+        if (node.userData?.isLocalAvatar || node.userData?.isSocialEffect) return false;
+        if (!node.visible) return false;
+        node = node.parent;
+      }
+      return true;
+    });
+    if (hit) {
+      const normal = hit.face
+        ? hit.face.normal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld)).normalize()
+        : new THREE.Vector3(0, 1, 0);
+      return { x: hit.point.x, y: hit.point.y, z: hit.point.z, nx: normal.x, ny: normal.y, nz: normal.z };
+    }
+    return {
+      x: origin.x + direction.x * 20, y: origin.y + direction.y * 20, z: origin.z + direction.z * 20,
+      nx: -direction.x, ny: -direction.y, nz: -direction.z,
+    };
+  }, [camera, scene, raycaster, cameraYaw, cameraPitch]);
+  if (aimPointGetterRef) aimPointGetterRef.current = getAimPoint;
   useFrame((_, delta) => {
     const lookDirection = new THREE.Vector3(Math.sin(cameraYaw), Math.tan(cameraPitch), -Math.cos(cameraYaw)).normalize();
     if (cameraMode === 'first') {
@@ -144,34 +186,33 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
       const viewDirection = new THREE.Vector3(Math.sin(cameraYaw) * Math.cos(cameraPitch), Math.sin(cameraPitch), -Math.cos(cameraYaw) * Math.cos(cameraPitch));
       camera.lookAt(focus.clone().add(viewDirection.multiplyScalar(5)));
     }
-    // A mira deve seguir exatamente o centro da imagem renderizada, não uma direção
-    // reconstruída a partir dos controles. Isso mantém o impacto alinhado ao que a câmera vê.
-    scene.updateMatrixWorld(true);
-    camera.updateMatrixWorld(true);
-    // Cast the ray through the exact center of the rendered viewport. This is the
-    // same center line the player aims with while the mouse is pointer-locked.
-    // setFromCamera uses the camera's current projection + world matrices, avoiding
-    // a stale/reconstructed forward vector that can make every throw hit one point.
-    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-    const direction = raycaster.ray.direction.clone().normalize();
-    raycaster.far = 30;
-    const hit = raycaster.intersectObjects(scene.children, true).find((item) => {
-      let node: THREE.Object3D | null = item.object;
-      while (node) {
-        if (node.userData?.isLocalAvatar || node.userData?.isSocialEffect) return false;
-        if (!node.visible) return false;
-        node = node.parent;
+    aimPointCallback.current?.(getAimPoint(cameraYaw, cameraPitch));
+    if (trajectoryLine.current) {
+      const line = trajectoryLine.current;
+      line.visible = Boolean(aimingAction);
+      if (aimingAction) {
+        const material = line.material as THREE.LineBasicMaterial;
+        material.color.set(aimingAction === 'throw_tomato' ? '#ff5757' : '#fff2b3');
+        const target = getAimPoint(cameraYaw, cameraPitch);
+        const start = new THREE.Vector3(
+          position.x + Math.sin(position.rotation) * 0.28,
+          1.3,
+          position.z + Math.cos(position.rotation) * 0.28,
+        );
+        const end = new THREE.Vector3(target.x, target.y, target.z);
+        const horizontalDistance = Math.hypot(end.x - start.x, end.z - start.z);
+        const arcHeight = Math.min(2.4, Math.max(0.3, horizontalDistance * 0.1));
+        const points: THREE.Vector3[] = [];
+        for (let i = 0; i <= 32; i += 1) {
+          const t = i / 32;
+          points.push(new THREE.Vector3(
+            THREE.MathUtils.lerp(start.x, end.x, t),
+            THREE.MathUtils.lerp(start.y, end.y, t) + 4 * arcHeight * t * (1 - t),
+            THREE.MathUtils.lerp(start.z, end.z, t),
+          ));
+        }
+        line.geometry.setFromPoints(points);
       }
-      return true;
-    });
-    if (hit) {
-      const normal = hit.face
-        ? hit.face.normal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld)).normalize()
-        : new THREE.Vector3(0, 1, 0);
-      aimPointCallback.current?.({ x: hit.point.x, y: hit.point.y, z: hit.point.z, nx: normal.x, ny: normal.y, nz: normal.z });
-    } else {
-      const point = raycaster.ray.origin.clone().add(direction.multiplyScalar(20));
-      aimPointCallback.current?.({ x: point.x, y: point.y, z: point.z, nx: -direction.x, ny: -direction.y, nz: -direction.z });
     }
   });
   const localPerson: Participant = { id: selfId || 'local', displayName: 'Você', color, accessory, expression, ...position, connected: true, pose };
@@ -194,19 +235,22 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
     {Array.from({ length: 9 }, (_, i) => <pointLight key={i} position={[(i - 4) * 2.2, 5.5, 3]} color={i % 2 ? '#8b5cf6' : '#60a5fa'} intensity={1.2} distance={4} />)}
     {cameraMode !== 'first' && <Avatar person={localPerson} local onSelectParticipant={onSelectParticipant} socialEffects={socialEffects} allPeople={[localPerson, ...participants.filter((person) => person.id !== selfId && person.connected)]} />}
     {participants.filter((person) => person.id !== selfId && person.connected).map((person) => <Avatar key={person.id} person={person} socialEffects={socialEffects} allPeople={[localPerson, ...participants.filter((candidate) => candidate.id !== selfId && candidate.connected)]} onSelectParticipant={onSelectParticipant} />)}
+    <primitive object={trajectoryObject} ref={trajectoryLine} visible={false} userData={{ isSocialEffect: true }} />
     {socialEffects.filter((effect) => ['throw_popcorn', 'throw_tomato'].includes(effect.action) && Date.now() - effect.sentAt < 4300).map((effect) => {
       const thrower = participants.find((person) => person.id === effect.actorId) ?? (effect.actorId === selfId ? localPerson : undefined);
-      return thrower ? <ThrownSnack key={effect.id} effect={effect} x={thrower.x} z={thrower.z} /> : null;
+      return thrower && effect.hitX !== undefined && effect.hitY !== undefined && effect.hitZ !== undefined
+        ? <ThrownSnack key={effect.id} effect={effect} x={thrower.x} z={thrower.z} rotation={thrower.rotation} />
+        : null;
     })}
   </>;
 }
-function ThrownSnack({ effect, x, z }: { effect: SocialEffect; x: number; z: number }) {
+function ThrownSnack({ effect, x, z, rotation }: { effect: SocialEffect; x: number; z: number; rotation: number }) {
   const projectile = useRef<THREE.Mesh>(null);
   const stain = useRef<THREE.Group>(null);
   const kernels = useRef<(THREE.Mesh | null)[]>([]);
   const physics = useRef<Array<{ vx: number; vy: number; vz: number }>>([]);
   const impactStarted = useRef(false);
-  const hit = useMemo(() => new THREE.Vector3(effect.hitX ?? 0, effect.hitY ?? 0, effect.hitZ ?? -10.2), [effect.hitX, effect.hitY, effect.hitZ]);
+  const hit = useMemo(() => new THREE.Vector3(effect.hitX!, effect.hitY!, effect.hitZ!), [effect.hitX, effect.hitY, effect.hitZ]);
   const normal = useMemo(() => new THREE.Vector3(effect.normalX ?? 0, effect.normalY ?? 1, effect.normalZ ?? 0).normalize(), [effect.normalX, effect.normalY, effect.normalZ]);
   const flightMs = 520;
   const isTomato = effect.action === 'throw_tomato';
@@ -237,9 +281,18 @@ function ThrownSnack({ effect, x, z }: { effect: SocialEffect; x: number; z: num
   useFrame(() => {
     const ageMs = Date.now() - effect.sentAt;
     const t = Math.max(0, Math.min(1, ageMs / flightMs));
-    const start = new THREE.Vector3(x, 1.18, z);
+    // Lança da frente do avatar e descreve um arco balístico até o ponto
+    // atingido pela mira da câmera, em vez de deslizar em linha quase reta.
+    const start = new THREE.Vector3(
+      x + Math.sin(rotation) * 0.28,
+      1.3,
+      z + Math.cos(rotation) * 0.28,
+    );
+    const horizontalDistance = Math.hypot(hit.x - start.x, hit.z - start.z);
+    const arcHeight = Math.min(2.4, Math.max(0.3, horizontalDistance * 0.1));
+    const arc = 4 * arcHeight * t * (1 - t);
     if (projectile.current) {
-      projectile.current.position.set(THREE.MathUtils.lerp(start.x, hit.x, t), THREE.MathUtils.lerp(start.y, hit.y, t) + Math.sin(t * Math.PI) * 0.5, THREE.MathUtils.lerp(start.z, hit.z, t));
+      projectile.current.position.set(THREE.MathUtils.lerp(start.x, hit.x, t), THREE.MathUtils.lerp(start.y, hit.y, t) + arc, THREE.MathUtils.lerp(start.z, hit.z, t));
       projectile.current.rotation.set(t * 7, t * 11, t * 5);
       // O tomate viaja como uma peça; a pipoca já sai como várias bolinhas.
       projectile.current.visible = isTomato && ageMs < flightMs;
@@ -262,7 +315,7 @@ function ThrownSnack({ effect, x, z }: { effect: SocialEffect; x: number; z: num
         const spread = t * 0.12;
         mesh.position.set(
           THREE.MathUtils.lerp(start.x, hit.x, t) + (kernelStarts[i]?.x ?? 0) * (0.25 + t) + (kernelStarts[i]?.x ?? 0) * spread,
-          THREE.MathUtils.lerp(start.y, hit.y, t) + Math.sin(t * Math.PI) * 0.5 + (kernelStarts[i]?.y ?? 0) * t,
+          THREE.MathUtils.lerp(start.y, hit.y, t) + arc + (kernelStarts[i]?.y ?? 0) * t,
           THREE.MathUtils.lerp(start.z, hit.z, t) + (kernelStarts[i]?.z ?? 0) * (0.25 + t) + (kernelStarts[i]?.z ?? 0) * spread,
         );
         mesh.visible = true;
@@ -317,12 +370,12 @@ function ThrownSnack({ effect, x, z }: { effect: SocialEffect; x: number; z: num
     </mesh>)}
   </>;
 }
-export function CinemaCanvas({ participants, selfId, position, color, accessory, expression, pose, socialEffects, nearbySeat, onSitChair, onSelectParticipant, onAimPoint, cameraMode, cameraYaw, cameraPitch, cameraDistance }: {
+export function CinemaCanvas({ participants, selfId, position, color, accessory, expression, pose, socialEffects, aimingAction, nearbySeat, onSitChair, onSelectParticipant, onAimPoint, aimPointGetterRef, cameraMode, cameraYaw, cameraPitch, cameraDistance }: {
   participants: Participant[]; selfId: string; position: { x: number; z: number; rotation: number };
-  color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; socialEffects: SocialEffect[];
-  nearbySeat: { x: number; z: number } | null; onSitChair: ((seat: { x: number; z: number }) => void) | undefined; onSelectParticipant?: ((participantId: string) => void) | undefined; onAimPoint?: ((point: { x: number; y: number; z: number; nx: number; ny: number; nz: number }) => void) | undefined; cameraMode: CameraMode; cameraYaw: number; cameraPitch: number; cameraDistance: number;
+  color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; socialEffects: SocialEffect[]; aimingAction: 'throw_popcorn' | 'throw_tomato' | null;
+  nearbySeat: { x: number; z: number } | null; onSitChair: ((seat: { x: number; z: number }) => void) | undefined; onSelectParticipant?: ((participantId: string) => void) | undefined; onAimPoint?: ((point: AimPoint) => void) | undefined; aimPointGetterRef: AimPointGetterRef; cameraMode: CameraMode; cameraYaw: number; cameraPitch: number; cameraDistance: number;
 }) {
   return <Canvas camera={{ position: [0, 5.5, 10], fov: 54 }} dpr={[1, 1.35]} shadows fallback={<p>Este dispositivo não consegue renderizar a cena 3D.</p>}>
-    <CinemaScene participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} nearbySeat={nearbySeat} onSitChair={onSitChair} onSelectParticipant={onSelectParticipant} onAimPoint={onAimPoint} cameraMode={cameraMode} cameraYaw={cameraYaw} cameraPitch={cameraPitch} cameraDistance={cameraDistance} />
+    <CinemaScene participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} aimingAction={aimingAction} nearbySeat={nearbySeat} onSitChair={onSitChair} onSelectParticipant={onSelectParticipant} onAimPoint={onAimPoint} aimPointGetterRef={aimPointGetterRef} cameraMode={cameraMode} cameraYaw={cameraYaw} cameraPitch={cameraPitch} cameraDistance={cameraDistance} />
   </Canvas>;
 }

@@ -135,6 +135,13 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
       const parsed = SocialSchema.safeParse(payload);
       if (!parsed.success) return;
       const { action, targetId, requestId, rating, seatX, seatZ, returnX, returnZ, returnRotation, hitX, hitY, hitZ, normalX, normalY, normalZ } = parsed.data;
+      // Rejeita lançamentos sem coordenadas calculadas pela mira atual. Nunca substitui
+      // a mira ausente por um ponto fixo no telão ou em qualquer outra parte da sala.
+      if ((action === 'throw_popcorn' || action === 'throw_tomato') &&
+          (hitX === undefined || hitY === undefined || hitZ === undefined)) {
+        socket.emit('social:response', { accepted: false, message: 'Mire para um ponto válido antes de lançar.' });
+        return;
+      }
       const actor = findParticipantByToken(roomId, token)?.participant;
       if (!actor) return;
       const target = targetId ? found.room.participants.get(targetId) : undefined;
