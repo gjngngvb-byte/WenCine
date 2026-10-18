@@ -91,8 +91,10 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     socket.on('avatar:dragged', (next: { x: number; z: number; rotation: number }) => { positionRef.current = next; setPosition(next); });
     socket.on('social:request', (request: { requestId: string; fromId: string; fromName: string; action: string }) => setPendingRequest(request));
     socket.on('social:response', (response: { accepted: boolean; action?: string; message?: string }) => setSocialStatus(response.message ?? (response.accepted ? 'Interação aceita!' : 'A pessoa recusou a interação.')));
-    socket.on('social:effect', (effect: { id: string; action: string; actorId: string; targetId?: string; sentAt: number }) => {
-      setSocialEffects((current) => [...current.slice(-24), effect]);
+    socket.on('social:effect', (effect: { id: string; action: string; actorId: string; targetId?: string; sentAt: number; hitX?: number; hitY?: number; hitZ?: number; normalX?: number; normalY?: number; normalZ?: number }) => {
+      // O relógio visual começa ao receber o evento para que a latência de rede não consuma o voo.
+      const visibleEffect = { ...effect, receivedAt: Date.now() };
+      setSocialEffects((current) => [...current.slice(-24), visibleEffect]);
       const labels: Record<string, string> = {
         sit: 'sentou no chão', sit_chair: 'sentou na cadeira', stand: 'levantou', fall: 'caiu', hold_hands: 'está de mãos dadas', hug: 'abraçou',
         release_hand: 'soltou as mãos', share_popcorn: 'dividiu a pipoca', kiss: 'deu um beijo',
