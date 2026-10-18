@@ -300,11 +300,14 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     setSocialStatus('Levante primeiro para poder deitar.');
   }
   function socialAction(action: string, extra: { targetId?: string | undefined; requestId?: string | undefined; rating?: number | undefined; seatX?: number | undefined; seatZ?: number | undefined; returnX?: number | undefined; returnZ?: number | undefined; returnRotation?: number | undefined } = {}) {
-    // Obtém o ponto com um raycast novo no instante do clique; o valor por frame
-    // fica apenas como fallback caso a cena ainda não tenha registrado o getter.
-    const aim = (action === 'throw_popcorn' || action === 'throw_tomato')
-      ? aimPointGetterRef.current?.(cameraYawRef.current, cameraPitchRef.current) ?? aimPointRef.current
-      : null;
+    // O lançamento só acontece com um raycast novo da direção atual da câmera.
+    // Não reutiliza mira antiga nem inventa um destino quando o raycast não está disponível.
+    const isThrow = action === 'throw_popcorn' || action === 'throw_tomato';
+    const aim = isThrow ? aimPointGetterRef.current?.(cameraYawRef.current, cameraPitchRef.current) : null;
+    if (isThrow && !aim) {
+      setSocialStatus('Não foi possível calcular a mira atual. Tente mirar novamente.');
+      return;
+    }
     const impact = aim
       ? { hitX: aim.x, hitY: aim.y, hitZ: aim.z, normalX: aim.nx, normalY: aim.ny, normalZ: aim.nz }
       : {};
