@@ -133,7 +133,14 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
     scene.updateMatrixWorld(true);
     camera.updateWorldMatrix(true, false);
     const origin = camera.getWorldPosition(new THREE.Vector3());
-    const direction = camera.getWorldDirection(new THREE.Vector3()).normalize();
+    // Use the exact yaw/pitch that drives the mouse-look controller instead of
+    // relying on the camera quaternion from the previous rendered frame.
+    // The same angles drive camera.lookAt in both camera modes.
+    const direction = new THREE.Vector3(
+      Math.sin(cameraYaw) * Math.cos(cameraPitch),
+      Math.sin(cameraPitch),
+      -Math.cos(cameraYaw) * Math.cos(cameraPitch),
+    ).normalize();
     raycaster.set(origin, direction);
     raycaster.near = 0.05;
     raycaster.far = 30;
@@ -156,7 +163,7 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
       x: origin.x + direction.x * 20, y: origin.y + direction.y * 20, z: origin.z + direction.z * 20,
       nx: -direction.x, ny: -direction.y, nz: -direction.z,
     };
-  }, [camera, scene, raycaster]);
+  }, [camera, scene, raycaster, cameraYaw, cameraPitch]);
   if (aimPointGetterRef) aimPointGetterRef.current = getAimPoint;
   useFrame((_, delta) => {
     const lookDirection = new THREE.Vector3(Math.sin(cameraYaw), Math.tan(cameraPitch), -Math.cos(cameraYaw)).normalize();
