@@ -21,6 +21,12 @@ const SocialSchema = z.object({
   returnX: z.number().finite().min(-9.05).max(9.05).optional(),
   returnZ: z.number().finite().min(-9.35).max(9.2).optional(),
   returnRotation: z.number().finite().optional(),
+  hitX: z.number().finite().min(-20).max(20).optional(),
+  hitY: z.number().finite().min(-2).max(12).optional(),
+  hitZ: z.number().finite().min(-20).max(20).optional(),
+  normalX: z.number().finite().min(-1).max(1).optional(),
+  normalY: z.number().finite().min(-1).max(1).optional(),
+  normalZ: z.number().finite().min(-1).max(1).optional(),
 });
 type PendingSocialRequest = { id: string; roomId: string; fromId: string; toId: string; action: 'hold_hands' | 'kiss' | 'peck' | 'handsy' | 'hug'; createdAt: number };
 const pendingSocialRequests = new Map<string, PendingSocialRequest>();
@@ -128,7 +134,7 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
     socket.on('social:action', (payload: unknown) => {
       const parsed = SocialSchema.safeParse(payload);
       if (!parsed.success) return;
-      const { action, targetId, requestId, rating, seatX, seatZ, returnX, returnZ, returnRotation } = parsed.data;
+      const { action, targetId, requestId, rating, seatX, seatZ, returnX, returnZ, returnRotation, hitX, hitY, hitZ, normalX, normalY, normalZ } = parsed.data;
       const actor = findParticipantByToken(roomId, token)?.participant;
       if (!actor) return;
       const target = targetId ? found.room.participants.get(targetId) : undefined;
@@ -138,6 +144,7 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
         if (targetPerson) { targetPerson.action = actualAction; targetPerson.actionAt = now; }
         io.to(roomId).emit('social:effect', {
           id: randomUUID(), action: actualAction, actorId: actor.id, targetId: targetPerson?.id, sentAt: now,
+          ...(actualAction === 'throw_popcorn' || actualAction === 'throw_tomato' ? { hitX, hitY, hitZ, normalX, normalY, normalZ } : {}),
         });
         io.to(roomId).emit('avatar:moved', safeParticipant(actor));
         if (targetPerson) io.to(roomId).emit('avatar:moved', safeParticipant(targetPerson));

@@ -9,7 +9,7 @@ type Participant = {
   id: string; displayName: string; color: string; accessory: string; expression: string;
   x: number; z: number; rotation: number; connected: boolean; pose?: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; holdingHandsWith?: string;
 };
-type SocialEffect = { id: string; action: string; actorId: string; targetId?: string; sentAt: number };
+type SocialEffect = { id: string; action: string; actorId: string; targetId?: string; sentAt: number; hitX?: number; hitY?: number; hitZ?: number; normalX?: number; normalY?: number; normalZ?: number };
 type CameraMode = 'third' | 'first';
 function Seat({ position }: { position: [number, number, number] }) {
   // O encosto fica para trás do avatar; todos os assentos olham para a tela (-Z).
@@ -87,7 +87,7 @@ function Avatar({ person, local = false, socialEffects, allPeople, onSelectParti
     if (leftLeg.current) leftLeg.current.rotation.x = person.pose === 'sitting_chair' ? 0 : sitting ? -1.15 : fallen ? 0.8 : -swing * 0.8;
     if (rightLeg.current) rightLeg.current.rotation.x = person.pose === 'sitting_chair' ? 0 : sitting ? -1.15 : fallen ? -0.35 : swing * 0.8;
   });
-  return <group ref={group} position={[person.x, 0, person.z]} onClick={(event) => { if (onSelectParticipant) { event.stopPropagation(); onSelectParticipant(person.id); } }}>
+  return <group ref={group} userData={local ? { isLocalAvatar: true } : {}} position={[person.x, 0, person.z]} onClick={(event) => { if (onSelectParticipant) { event.stopPropagation(); onSelectParticipant(person.id); } }}>
     <mesh position={[0, 0.57, 0]} castShadow><capsuleGeometry args={[0.23, 0.34, 5, 10]} /><meshStandardMaterial color={bodyColor} roughness={0.58} /></mesh>
     <mesh position={[0, 0.33, 0]} castShadow><sphereGeometry args={[0.2, 16, 12]} /><meshStandardMaterial color={bodyColor} roughness={0.7} /></mesh>
     <group ref={leftArm} position={[-0.25, 0.67, 0]}><mesh position={[0, -0.18, 0]} rotation={[0, 0, -0.12]} castShadow><capsuleGeometry args={[0.075, 0.28, 4, 8]} /><meshStandardMaterial color={bodyColor} /></mesh><mesh position={[0, -0.34, 0.015]}><sphereGeometry args={[0.075, 10, 8]} /><meshStandardMaterial color="#f1d3c3" /></mesh></group>
@@ -116,12 +116,15 @@ function Avatar({ person, local = false, socialEffects, allPeople, onSelectParti
     <mesh position={[0, 1.55, 0]}><sphereGeometry args={[0.035, 8, 8]} /><meshBasicMaterial color={local ? '#34d399' : '#c4b5fd'} /></mesh>
   </group>;
 }
-function CinemaScene({ participants, selfId, position, color, accessory, expression, pose, socialEffects, nearbySeat, onSitChair, onSelectParticipant, cameraMode, cameraYaw, cameraPitch, cameraDistance }: {
+function CinemaScene({ participants, selfId, position, color, accessory, expression, pose, socialEffects, nearbySeat, onSitChair, onSelectParticipant, onAimPoint, cameraMode, cameraYaw, cameraPitch, cameraDistance }: {
   participants: Participant[]; selfId: string; position: { x: number; z: number; rotation: number };
   color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; socialEffects: SocialEffect[];
-  nearbySeat: { x: number; z: number } | null; onSitChair: ((seat: { x: number; z: number }) => void) | undefined; onSelectParticipant?: ((participantId: string) => void) | undefined; cameraMode: CameraMode; cameraYaw: number; cameraPitch: number; cameraDistance: number;
+  nearbySeat: { x: number; z: number } | null; onSitChair: ((seat: { x: number; z: number }) => void) | undefined; onSelectParticipant?: ((participantId: string) => void) | undefined; onAimPoint?: ((point: { x: number; y: number; z: number; nx: number; ny: number; nz: number }) => void) | undefined; cameraMode: CameraMode; cameraYaw: number; cameraPitch: number; cameraDistance: number;
 }) {
-  const { camera } = useThree();
+  const { camera, scene } = useThree();
+  const raycaster = useMemo(() => new THREE.Raycaster(), []);
+  const aimPointCallback = useRef(onAimPoint);
+  aimPointCallback.current = onAimPoint;
   useFrame((_, delta) => {
     const lookDirection = new THREE.Vector3(Math.sin(cameraYaw), Math.tan(cameraPitch), -Math.cos(cameraYaw)).normalize();
     if (cameraMode === 'first') {
@@ -140,6 +143,31 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
       camera.position.lerp(new THREE.Vector3(targetX, targetY, targetZ), Math.min(1, delta * 8));
       const viewDirection = new THREE.Vector3(Math.sin(cameraYaw) * Math.cos(cameraPitch), Math.sin(cameraPitch), -Math.cos(cameraYaw) * Math.cos(cameraPitch));
       camera.lookAt(focus.clone().add(viewDirection.multiplyScalar(5)));
+    }
+    // A mira deve seguir exatamente o centro da imagem renderizada, não uma direção
+    // reconstruída a partir dos controles. Isso mantém o impacto alinhado ao que a câmera vê.
+    scene.updateMatrixWorld(true);
+    camera.updateMatrixWorld(true);
+    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+    raycaster.far = 30;
+    const direction = raycaster.ray.direction.clone().normalize();
+    const hit = raycaster.intersectObjects(scene.children, true).find((item) => {
+      let node: THREE.Object3D | null = item.object;
+      while (node) {
+        if (node.userData?.isLocalAvatar || node.userData?.isSocialEffect) return false;
+        if (!node.visible) return false;
+        node = node.parent;
+      }
+      return true;
+    });
+    if (hit) {
+      const normal = hit.face
+        ? hit.face.normal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld)).normalize()
+        : new THREE.Vector3(0, 1, 0);
+      aimPointCallback.current?.({ x: hit.point.x, y: hit.point.y, z: hit.point.z, nx: normal.x, ny: normal.y, nz: normal.z });
+    } else {
+      const point = raycaster.ray.origin.clone().add(direction.multiplyScalar(20));
+      aimPointCallback.current?.({ x: point.x, y: point.y, z: point.z, nx: -direction.x, ny: -direction.y, nz: -direction.z });
     }
   });
   const localPerson: Participant = { id: selfId || 'local', displayName: 'Você', color, accessory, expression, ...position, connected: true, pose };
@@ -162,34 +190,135 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
     {Array.from({ length: 9 }, (_, i) => <pointLight key={i} position={[(i - 4) * 2.2, 5.5, 3]} color={i % 2 ? '#8b5cf6' : '#60a5fa'} intensity={1.2} distance={4} />)}
     {cameraMode !== 'first' && <Avatar person={localPerson} local onSelectParticipant={onSelectParticipant} socialEffects={socialEffects} allPeople={[localPerson, ...participants.filter((person) => person.id !== selfId && person.connected)]} />}
     {participants.filter((person) => person.id !== selfId && person.connected).map((person) => <Avatar key={person.id} person={person} socialEffects={socialEffects} allPeople={[localPerson, ...participants.filter((candidate) => candidate.id !== selfId && candidate.connected)]} onSelectParticipant={onSelectParticipant} />)}
-    {socialEffects.filter((effect) => ['throw_popcorn', 'throw_tomato'].includes(effect.action) && Date.now() - effect.sentAt < 1800).map((effect) => {
+    {socialEffects.filter((effect) => ['throw_popcorn', 'throw_tomato'].includes(effect.action) && Date.now() - effect.sentAt < 4300).map((effect) => {
       const thrower = participants.find((person) => person.id === effect.actorId) ?? (effect.actorId === selfId ? localPerson : undefined);
       return thrower ? <ThrownSnack key={effect.id} effect={effect} x={thrower.x} z={thrower.z} /> : null;
     })}
   </>;
 }
 function ThrownSnack({ effect, x, z }: { effect: SocialEffect; x: number; z: number }) {
-  const mesh = useRef<THREE.Mesh>(null);
+  const projectile = useRef<THREE.Mesh>(null);
+  const stain = useRef<THREE.Group>(null);
+  const kernels = useRef<(THREE.Mesh | null)[]>([]);
+  const physics = useRef<Array<{ vx: number; vy: number; vz: number }>>([]);
+  const impactStarted = useRef(false);
+  const hit = useMemo(() => new THREE.Vector3(effect.hitX ?? 0, effect.hitY ?? 0, effect.hitZ ?? -10.2), [effect.hitX, effect.hitY, effect.hitZ]);
+  const normal = useMemo(() => new THREE.Vector3(effect.normalX ?? 0, effect.normalY ?? 1, effect.normalZ ?? 0).normalize(), [effect.normalX, effect.normalY, effect.normalZ]);
+  const flightMs = 520;
+  const isTomato = effect.action === 'throw_tomato';
+  const seed = useMemo(() => {
+    let value = 0;
+    for (const char of effect.id) value = (value * 31 + char.charCodeAt(0)) >>> 0;
+    return () => { value = (value * 1664525 + 1013904223) >>> 0; return value / 4294967296; };
+  }, [effect.id]);
+  // Distribui as pipocas sobre o plano da superfície atingida, seja parede, cadeira ou chão.
+  const kernelStarts = useMemo(() => {
+    const reference = Math.abs(normal.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+    const tangent = new THREE.Vector3().crossVectors(normal, reference).normalize();
+    const bitangent = new THREE.Vector3().crossVectors(normal, tangent).normalize();
+    return Array.from({ length: 12 }, () => {
+      const angle = seed() * Math.PI * 2;
+      const radius = Math.sqrt(seed()) * 0.16;
+      const offset = tangent.clone().multiplyScalar(Math.cos(angle) * radius)
+        .add(bitangent.clone().multiplyScalar(Math.sin(angle) * radius));
+      return { x: offset.x, y: offset.y, z: offset.z };
+    });
+  }, [seed, normal]);
+  const stainParts = useMemo(() => Array.from({ length: 7 }, (_, i) => ({
+    x: i === 0 ? 0 : (seed() - 0.5) * 0.34,
+    y: i === 0 ? 0 : (seed() - 0.5) * 0.34,
+    r: i === 0 ? 0.17 : 0.045 + seed() * 0.07,
+    color: i % 2 ? '#dc2626' : '#ef4444',
+  })), [seed]);
   useFrame(() => {
-    if (!mesh.current) return;
-    const t = Math.min(1, Math.max(0, (Date.now() - effect.sentAt) / 1400));
-    const targetX = x * 0.35;
-    mesh.current.position.set(THREE.MathUtils.lerp(x, targetX, t), 1.2 + Math.sin(t * Math.PI) * 2.1, THREE.MathUtils.lerp(z, -10.2, t));
-    mesh.current.scale.setScalar(effect.action === 'throw_tomato' ? 0.16 : 0.09);
-    mesh.current.rotation.set(t * 7, t * 11, t * 5);
-    mesh.current.visible = t < 1;
+    const ageMs = Date.now() - effect.sentAt;
+    const t = Math.max(0, Math.min(1, ageMs / flightMs));
+    const start = new THREE.Vector3(x, 1.18, z);
+    if (projectile.current) {
+      projectile.current.position.set(THREE.MathUtils.lerp(start.x, hit.x, t), THREE.MathUtils.lerp(start.y, hit.y, t) + Math.sin(t * Math.PI) * 0.5, THREE.MathUtils.lerp(start.z, hit.z, t));
+      projectile.current.rotation.set(t * 7, t * 11, t * 5);
+      // O tomate viaja como uma peça; a pipoca já sai como várias bolinhas.
+      projectile.current.visible = isTomato && ageMs < flightMs;
+      projectile.current.scale.setScalar(0.15);
+    }
+    if (stain.current) {
+      const afterHit = (ageMs - flightMs) / 1000;
+      stain.current.position.copy(hit.clone().addScaledVector(normal, 0.012));
+      stain.current.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+      stain.current.visible = isTomato && afterHit >= 0 && afterHit < 3.6;
+      stain.current.children.forEach((child) => {
+        const material = (child as THREE.Mesh).material as THREE.MeshBasicMaterial;
+        material.opacity = afterHit > 3 ? Math.max(0, (3.6 - afterHit) / 0.6) : 0.92;
+      });
+    }
+    if (!isTomato && ageMs < flightMs) {
+      // Pequenas bolinhas visíveis durante todo o arremesso, abrindo levemente em leque.
+      kernels.current.forEach((mesh, i) => {
+        if (!mesh) return;
+        const spread = t * 0.12;
+        mesh.position.set(
+          THREE.MathUtils.lerp(start.x, hit.x, t) + (kernelStarts[i]?.x ?? 0) * (0.25 + t) + (kernelStarts[i]?.x ?? 0) * spread,
+          THREE.MathUtils.lerp(start.y, hit.y, t) + Math.sin(t * Math.PI) * 0.5 + (kernelStarts[i]?.y ?? 0) * t,
+          THREE.MathUtils.lerp(start.z, hit.z, t) + (kernelStarts[i]?.z ?? 0) * (0.25 + t) + (kernelStarts[i]?.z ?? 0) * spread,
+        );
+        mesh.visible = true;
+        (mesh.material as THREE.MeshBasicMaterial).opacity = 1;
+      });
+    } else if (!isTomato && ageMs < flightMs + 3200) {
+      const elapsed = Math.max(0, (ageMs - flightMs) / 1000);
+      if (!impactStarted.current) {
+        impactStarted.current = true;
+        const reference = Math.abs(normal.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+        const tangent = new THREE.Vector3().crossVectors(normal, reference).normalize();
+        const bitangent = new THREE.Vector3().crossVectors(normal, tangent).normalize();
+        physics.current = kernelStarts.map(() => {
+          const spreadA = (seed() - 0.5) * 2.2;
+          const spreadB = (seed() - 0.5) * 2.2;
+          const velocity = normal.clone().multiplyScalar(0.65 + seed() * 1.25)
+            .add(tangent.clone().multiplyScalar(spreadA))
+            .add(bitangent.clone().multiplyScalar(spreadB));
+          velocity.y += 0.45 + seed() * 1.1;
+          return { vx: velocity.x, vy: velocity.y, vz: velocity.z };
+        });
+      }
+      kernels.current.forEach((mesh, i) => {
+        if (!mesh) return;
+        const velocity = physics.current[i];
+        if (!velocity) return;
+        const kt = Math.max(0, elapsed - (i % 3) * 0.025);
+        let y = hit.y + (kernelStarts[i]?.y ?? 0) + normal.y * 0.035 + velocity.vy * kt - 4.9 * kt * kt;
+        if (y < 0.045) { y = 0.045 + Math.abs(Math.sin(kt * 5 + i)) * 0.025; velocity.vx *= 0.985; velocity.vz *= 0.985; }
+        mesh.position.set(
+          hit.x + (kernelStarts[i]?.x ?? 0) + normal.x * 0.035 + velocity.vx * kt,
+          Math.max(0.045, y),
+          hit.z + (kernelStarts[i]?.z ?? 0) + normal.z * 0.035 + velocity.vz * kt,
+        );
+        mesh.visible = ageMs < flightMs + 3000;
+        (mesh.material as THREE.MeshBasicMaterial).opacity = ageMs > flightMs + 2450 ? Math.max(0, (flightMs + 3000 - ageMs) / 550) : 1;
+      });
+    } else kernels.current.forEach((mesh) => { if (mesh) mesh.visible = false; });
   });
-  return <mesh ref={mesh} position={[x, 1.2, z]} castShadow>
-    <sphereGeometry args={[1, 12, 10]} />
-    <meshStandardMaterial color={effect.action === 'throw_tomato' ? '#ef4444' : '#fbbf24'} roughness={0.55} />
-  </mesh>;
+  const stainQuaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+  return <>
+    <mesh ref={projectile} position={[x, 1.18, z]} castShadow userData={{ isSocialEffect: true }}>
+      <sphereGeometry args={[1, 12, 10]} /><meshStandardMaterial color={isTomato ? '#ef4444' : '#fffdf5'} roughness={0.55} />
+    </mesh>
+    <group ref={stain} position={[hit.x, hit.y, hit.z]} quaternion={stainQuaternion} userData={{ isSocialEffect: true }}>
+      {stainParts.map((part, i) => <mesh key={i} position={[part.x, part.y, 0]} renderOrder={4}>
+        <circleGeometry args={[part.r, 14]} /><meshBasicMaterial color={part.color} transparent opacity={0.92} depthWrite={false} side={THREE.DoubleSide} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
+      </mesh>)}
+    </group>
+    {!isTomato && kernelStarts.map((start, i) => <mesh key={i} ref={(node) => { kernels.current[i] = node; }} position={[hit.x + start.x, hit.y + start.y, hit.z + start.z]} visible={false} userData={{ isSocialEffect: true }}>
+      <sphereGeometry args={[0.035 + (i % 3) * 0.006, 8, 6]} /><meshBasicMaterial color="#fffdf5" transparent opacity={1} />
+    </mesh>)}
+  </>;
 }
-export function CinemaCanvas({ participants, selfId, position, color, accessory, expression, pose, socialEffects, nearbySeat, onSitChair, onSelectParticipant, cameraMode, cameraYaw, cameraPitch, cameraDistance }: {
+export function CinemaCanvas({ participants, selfId, position, color, accessory, expression, pose, socialEffects, nearbySeat, onSitChair, onSelectParticipant, onAimPoint, cameraMode, cameraYaw, cameraPitch, cameraDistance }: {
   participants: Participant[]; selfId: string; position: { x: number; z: number; rotation: number };
   color: string; accessory: string; expression: string; pose: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; socialEffects: SocialEffect[];
-  nearbySeat: { x: number; z: number } | null; onSitChair: ((seat: { x: number; z: number }) => void) | undefined; onSelectParticipant?: ((participantId: string) => void) | undefined; cameraMode: CameraMode; cameraYaw: number; cameraPitch: number; cameraDistance: number;
+  nearbySeat: { x: number; z: number } | null; onSitChair: ((seat: { x: number; z: number }) => void) | undefined; onSelectParticipant?: ((participantId: string) => void) | undefined; onAimPoint?: ((point: { x: number; y: number; z: number; nx: number; ny: number; nz: number }) => void) | undefined; cameraMode: CameraMode; cameraYaw: number; cameraPitch: number; cameraDistance: number;
 }) {
   return <Canvas camera={{ position: [0, 5.5, 10], fov: 54 }} dpr={[1, 1.35]} shadows fallback={<p>Este dispositivo não consegue renderizar a cena 3D.</p>}>
-    <CinemaScene participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} nearbySeat={nearbySeat} onSitChair={onSitChair} onSelectParticipant={onSelectParticipant} cameraMode={cameraMode} cameraYaw={cameraYaw} cameraPitch={cameraPitch} cameraDistance={cameraDistance} />
+    <CinemaScene participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} nearbySeat={nearbySeat} onSitChair={onSitChair} onSelectParticipant={onSelectParticipant} onAimPoint={onAimPoint} cameraMode={cameraMode} cameraYaw={cameraYaw} cameraPitch={cameraPitch} cameraDistance={cameraDistance} />
   </Canvas>;
 }
