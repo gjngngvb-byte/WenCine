@@ -77,7 +77,7 @@ function Avatar({ person, local = false, socialEffects, allPeople, onSelectParti
     gait.current = THREE.MathUtils.damp(gait.current, moving ? 1 : 0, delta, 9);
     const swing = Math.sin(performance.now() * 0.012) * gait.current * 0.62;
     const holdingHands = Boolean(person.holdingHandsWith);
-    const waving = activeEffect && ['slap', 'share_popcorn', 'steal_popcorn', 'hold_hands', 'kiss', 'peck', 'hug', 'handsy', 'throw_popcorn', 'throw_tomato'].includes(activeEffect.action);
+    const waving = activeEffect && ['slap', 'share_popcorn', 'steal_popcorn', 'hold_hands', 'kiss', 'peck', 'hug', 'handsy', 'throw_popcorn', 'throw_tomato', 'throw_egg'].includes(activeEffect.action);
     if (leftArm.current) {
       leftArm.current.rotation.x = sitting ? -0.5 : activeEffect?.action === 'hug' ? -Math.sin(age * Math.PI) * 1.25 : (holdingHands || (waving && activeEffect?.action === 'hold_hands')) ? -0.7 : swing;
       leftArm.current.rotation.z = activeEffect?.action === 'hug' ? Math.sin(age * Math.PI) * 0.48 : waving && activeEffect?.action === 'share_popcorn' ? -0.45 : 0;
