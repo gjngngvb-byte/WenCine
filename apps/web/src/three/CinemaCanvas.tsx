@@ -148,9 +148,13 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
     // reconstruída a partir dos controles. Isso mantém o impacto alinhado ao que a câmera vê.
     scene.updateMatrixWorld(true);
     camera.updateMatrixWorld(true);
-    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+    // Use the camera's actual world-space forward vector. Reconstructing the ray
+    // from the projection matrix can lag behind camera lookAt/orbit updates during
+    // pointer-lock movement, making throws repeatedly target an old screen point.
+    const rayOrigin = camera.getWorldPosition(new THREE.Vector3());
+    const direction = camera.getWorldDirection(new THREE.Vector3()).normalize();
+    raycaster.set(rayOrigin, direction);
     raycaster.far = 30;
-    const direction = raycaster.ray.direction.clone().normalize();
     const hit = raycaster.intersectObjects(scene.children, true).find((item) => {
       let node: THREE.Object3D | null = item.object;
       while (node) {
