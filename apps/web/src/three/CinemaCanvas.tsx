@@ -144,20 +144,29 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
       const viewDirection = new THREE.Vector3(Math.sin(cameraYaw) * Math.cos(cameraPitch), Math.sin(cameraPitch), -Math.cos(cameraYaw) * Math.cos(cameraPitch));
       camera.lookAt(focus.clone().add(viewDirection.multiplyScalar(5)));
     }
-    camera.updateMatrixWorld();
-    const direction = camera.getWorldDirection(new THREE.Vector3());
-    raycaster.set(camera.position, direction);
+    // A mira deve seguir exatamente o centro da imagem renderizada, não uma direção
+    // reconstruída a partir dos controles. Isso mantém o impacto alinhado ao que a câmera vê.
+    scene.updateMatrixWorld(true);
+    camera.updateMatrixWorld(true);
+    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
     raycaster.far = 30;
+    const direction = raycaster.ray.direction.clone().normalize();
     const hit = raycaster.intersectObjects(scene.children, true).find((item) => {
       let node: THREE.Object3D | null = item.object;
-      while (node) { if (node.userData?.isLocalAvatar) return false; node = node.parent; }
-      return item.object.visible;
+      while (node) {
+        if (node.userData?.isLocalAvatar || node.userData?.isSocialEffect) return false;
+        if (!node.visible) return false;
+        node = node.parent;
+      }
+      return true;
     });
     if (hit) {
-      const normal = hit.face ? hit.face.normal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld)).normalize() : new THREE.Vector3(0, 1, 0);
+      const normal = hit.face
+        ? hit.face.normal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld)).normalize()
+        : new THREE.Vector3(0, 1, 0);
       aimPointCallback.current?.({ x: hit.point.x, y: hit.point.y, z: hit.point.z, nx: normal.x, ny: normal.y, nz: normal.z });
     } else {
-      const point = camera.position.clone().add(direction.multiplyScalar(20));
+      const point = raycaster.ray.origin.clone().add(direction.multiplyScalar(20));
       aimPointCallback.current?.({ x: point.x, y: point.y, z: point.z, nx: -direction.x, ny: -direction.y, nz: -direction.z });
     }
   });
@@ -202,7 +211,19 @@ function ThrownSnack({ effect, x, z }: { effect: SocialEffect; x: number; z: num
     for (const char of effect.id) value = (value * 31 + char.charCodeAt(0)) >>> 0;
     return () => { value = (value * 1664525 + 1013904223) >>> 0; return value / 4294967296; };
   }, [effect.id]);
-  const kernelStarts = useMemo(() => Array.from({ length: 10 }, () => ({ x: (seed() - 0.5) * 0.35, z: (seed() - 0.5) * 0.35 })), [seed]);
+  // Distribui as pipocas sobre o plano da superfície atingida, seja parede, cadeira ou chão.
+  const kernelStarts = useMemo(() => {
+    const reference = Math.abs(normal.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+    const tangent = new THREE.Vector3().crossVectors(normal, reference).normalize();
+    const bitangent = new THREE.Vector3().crossVectors(normal, tangent).normalize();
+    return Array.from({ length: 12 }, () => {
+      const angle = seed() * Math.PI * 2;
+      const radius = Math.sqrt(seed()) * 0.16;
+      const offset = tangent.clone().multiplyScalar(Math.cos(angle) * radius)
+        .add(bitangent.clone().multiplyScalar(Math.sin(angle) * radius));
+      return { x: offset.x, y: offset.y, z: offset.z };
+    });
+  }, [seed, normal]);
   const stainParts = useMemo(() => Array.from({ length: 7 }, (_, i) => ({
     x: i === 0 ? 0 : (seed() - 0.5) * 0.34,
     y: i === 0 ? 0 : (seed() - 0.5) * 0.34,
@@ -233,16 +254,31 @@ function ThrownSnack({ effect, x, z }: { effect: SocialEffect; x: number; z: num
       const elapsed = Math.max(0, (ageMs - flightMs) / 1000);
       if (!impactStarted.current) {
         impactStarted.current = true;
-        physics.current = kernelStarts.map((_, i) => ({ vx: (i % 2 ? 1 : -1) * (0.55 + seed() * 1.1), vy: 1.8 + seed() * 2.2, vz: (i % 3 - 1) * (0.55 + seed() * 1.1) }));
+        const reference = Math.abs(normal.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+        const tangent = new THREE.Vector3().crossVectors(normal, reference).normalize();
+        const bitangent = new THREE.Vector3().crossVectors(normal, tangent).normalize();
+        physics.current = kernelStarts.map(() => {
+          const spreadA = (seed() - 0.5) * 2.2;
+          const spreadB = (seed() - 0.5) * 2.2;
+          const velocity = normal.clone().multiplyScalar(0.65 + seed() * 1.25)
+            .add(tangent.clone().multiplyScalar(spreadA))
+            .add(bitangent.clone().multiplyScalar(spreadB));
+          velocity.y += 0.45 + seed() * 1.1;
+          return { vx: velocity.x, vy: velocity.y, vz: velocity.z };
+        });
       }
       kernels.current.forEach((mesh, i) => {
         if (!mesh) return;
         const velocity = physics.current[i];
         if (!velocity) return;
         const kt = Math.max(0, elapsed - (i % 3) * 0.025);
-        let y = hit.y + 0.035 + velocity.vy * kt - 4.9 * kt * kt;
+        let y = hit.y + (kernelStarts[i]?.y ?? 0) + normal.y * 0.035 + velocity.vy * kt - 4.9 * kt * kt;
         if (y < 0.045) { y = 0.045 + Math.abs(Math.sin(kt * 5 + i)) * 0.025; velocity.vx *= 0.985; velocity.vz *= 0.985; }
-        mesh.position.set(hit.x + (kernelStarts[i]?.x ?? 0) + velocity.vx * kt, Math.max(0.045, y), hit.z + (kernelStarts[i]?.z ?? 0) + velocity.vz * kt);
+        mesh.position.set(
+          hit.x + (kernelStarts[i]?.x ?? 0) + normal.x * 0.035 + velocity.vx * kt,
+          Math.max(0.045, y),
+          hit.z + (kernelStarts[i]?.z ?? 0) + normal.z * 0.035 + velocity.vz * kt,
+        );
         mesh.visible = ageMs < flightMs + 3000;
         (mesh.material as THREE.MeshBasicMaterial).opacity = ageMs > flightMs + 2450 ? Math.max(0, (flightMs + 3000 - ageMs) / 550) : 1;
       });
@@ -250,15 +286,15 @@ function ThrownSnack({ effect, x, z }: { effect: SocialEffect; x: number; z: num
   });
   const stainQuaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
   return <>
-    <mesh ref={projectile} position={[x, 1.18, z]} castShadow>
+    <mesh ref={projectile} position={[x, 1.18, z]} castShadow userData={{ isSocialEffect: true }}>
       <sphereGeometry args={[1, 12, 10]} /><meshStandardMaterial color={isTomato ? '#ef4444' : '#fffdf5'} roughness={0.55} />
     </mesh>
-    <group ref={stain} position={[hit.x, hit.y, hit.z]} quaternion={stainQuaternion}>
+    <group ref={stain} position={[hit.x, hit.y, hit.z]} quaternion={stainQuaternion} userData={{ isSocialEffect: true }}>
       {stainParts.map((part, i) => <mesh key={i} position={[part.x, part.y, 0]} renderOrder={4}>
-        <circleGeometry args={[part.r, 14]} /><meshBasicMaterial color={part.color} transparent opacity={0.92} depthWrite={false} side={THREE.DoubleSide} />
+        <circleGeometry args={[part.r, 14]} /><meshBasicMaterial color={part.color} transparent opacity={0.92} depthWrite={false} side={THREE.DoubleSide} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
       </mesh>)}
     </group>
-    {!isTomato && kernelStarts.map((start, i) => <mesh key={i} ref={(node) => { kernels.current[i] = node; }} position={[hit.x + start.x, hit.y, hit.z + start.z]} visible={false}>
+    {!isTomato && kernelStarts.map((start, i) => <mesh key={i} ref={(node) => { kernels.current[i] = node; }} position={[hit.x + start.x, hit.y + start.y, hit.z + start.z]} visible={false} userData={{ isSocialEffect: true }}>
       <sphereGeometry args={[0.035 + (i % 3) * 0.006, 8, 6]} /><meshBasicMaterial color="#fffdf5" transparent opacity={1} />
     </mesh>)}
   </>;
