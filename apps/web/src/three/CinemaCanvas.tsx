@@ -209,7 +209,7 @@ function ThrownSnack({ effect, x, z }: { effect: SocialEffect; x: number; z: num
     r: i === 0 ? 0.17 : 0.045 + seed() * 0.07,
     color: i % 2 ? '#dc2626' : '#ef4444',
   })), [seed]);
-  useFrame((_, delta) => {
+  useFrame(() => {
     const ageMs = Date.now() - effect.sentAt;
     const t = Math.max(0, Math.min(1, ageMs / flightMs));
     if (projectile.current) {
