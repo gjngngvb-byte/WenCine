@@ -153,7 +153,6 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
     // setFromCamera uses the camera's current projection + world matrices, avoiding
     // a stale/reconstructed forward vector that can make every throw hit one point.
     raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-    const rayOrigin = raycaster.ray.origin.clone();
     const direction = raycaster.ray.direction.clone().normalize();
     raycaster.far = 30;
     const hit = raycaster.intersectObjects(scene.children, true).find((item) => {
