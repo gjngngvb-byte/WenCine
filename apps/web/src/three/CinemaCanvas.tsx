@@ -12,7 +12,7 @@ type Participant = {
 type SocialEffect = { id: string; action: string; actorId: string; targetId?: string; sentAt: number; hitX?: number; hitY?: number; hitZ?: number; normalX?: number; normalY?: number; normalZ?: number };
 type CameraMode = 'third' | 'first';
 type AimPoint = { x: number; y: number; z: number; nx: number; ny: number; nz: number };
-type AimPointGetterRef = { current: (() => AimPoint | null) | null };
+type AimPointGetterRef = { current: ((yaw: number, pitch: number) => AimPoint | null) | null };
 function Seat({ position }: { position: [number, number, number] }) {
   // O encosto fica para trás do avatar; todos os assentos olham para a tela (-Z).
   return <group position={position} rotation={[0, Math.PI, 0]}>
@@ -127,7 +127,7 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
   const raycaster = useMemo(() => new THREE.Raycaster(), []);
   const aimPointCallback = useRef(onAimPoint);
   aimPointCallback.current = onAimPoint;
-  const getAimPoint = useCallback((): AimPoint => {
+  const getAimPoint = useCallback((yaw = cameraYaw, pitch = cameraPitch): AimPoint => {
     // Recalcula a mira no instante do arremesso, usando a câmera já atualizada.
     // Não depende do último ponto salvo pelo frame anterior.
     scene.updateMatrixWorld(true);
@@ -137,9 +137,9 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
     // relying on the camera quaternion from the previous rendered frame.
     // The same angles drive camera.lookAt in both camera modes.
     const direction = new THREE.Vector3(
-      Math.sin(cameraYaw) * Math.cos(cameraPitch),
-      Math.sin(cameraPitch),
-      -Math.cos(cameraYaw) * Math.cos(cameraPitch),
+      Math.sin(yaw) * Math.cos(pitch),
+      Math.sin(pitch),
+      -Math.cos(yaw) * Math.cos(pitch),
     ).normalize();
     raycaster.set(origin, direction);
     raycaster.near = 0.05;
@@ -184,7 +184,7 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
       const viewDirection = new THREE.Vector3(Math.sin(cameraYaw) * Math.cos(cameraPitch), Math.sin(cameraPitch), -Math.cos(cameraYaw) * Math.cos(cameraPitch));
       camera.lookAt(focus.clone().add(viewDirection.multiplyScalar(5)));
     }
-    aimPointCallback.current?.(getAimPoint());
+    aimPointCallback.current?.(getAimPoint(cameraYaw, cameraPitch));
   });
   const localPerson: Participant = { id: selfId || 'local', displayName: 'Você', color, accessory, expression, ...position, connected: true, pose };
   return <>
