@@ -174,8 +174,6 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
           pose === 'sitting_chair' ? 0.95 : 1.22,
           position.z - Math.cos(cameraYaw) * 0.42,
         );
-        const target = getAimPoint(cameraYaw, cameraPitch);
-        const end = new THREE.Vector3(target.x, target.y, target.z);
         line.geometry.setFromPoints(buildProjectileArcFromDirection(start, new THREE.Vector3(Math.sin(cameraYaw) * Math.cos(cameraPitch), Math.sin(cameraPitch), -Math.cos(cameraYaw) * Math.cos(cameraPitch)).normalize(), 96));
       }
     }
