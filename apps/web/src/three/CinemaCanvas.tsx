@@ -13,7 +13,7 @@ type Participant = {
 };
 type SocialEffect = { id: string; action: string; actorId: string; targetId?: string; sentAt: number; receivedAt?: number; startX?: number; startY?: number; startZ?: number; hitX?: number; hitY?: number; hitZ?: number; normalX?: number; normalY?: number; normalZ?: number };
 type CameraMode = 'third' | 'first';
-type AimPoint = { x: number; y: number; z: number; nx: number; ny: number; nz: number };
+type AimPoint = { x: number; y: number; z: number; nx: number; ny: number; nz: number; directionX: number; directionY: number; directionZ: number };
 type AimPointGetterRef = { current: ((yaw: number, pitch: number) => AimPoint | null) | null };
 function Seat({ position }: { position: [number, number, number] }) {
   // O encosto fica para trás do avatar; todos os assentos olham para a tela (-Z).
@@ -140,7 +140,7 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
       Math.sin(pitch),
       -Math.cos(yaw) * Math.cos(pitch),
     ).normalize();
-    return getProjectileAimPoint(camera, scene, raycaster, 30, direction);
+    return { ...getProjectileAimPoint(camera, scene, raycaster, 30, direction), directionX: direction.x, directionY: direction.y, directionZ: direction.z };
   }, [camera, scene, raycaster, cameraYaw, cameraPitch]);
   if (aimPointGetterRef) aimPointGetterRef.current = getAimPoint;
   useFrame((_, delta) => {
