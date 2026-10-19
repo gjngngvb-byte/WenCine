@@ -30,6 +30,9 @@ const SocialSchema = z.object({
   normalX: z.number().finite().min(-1).max(1).optional(),
   normalY: z.number().finite().min(-1).max(1).optional(),
   normalZ: z.number().finite().min(-1).max(1).optional(),
+  directionX: z.number().finite().min(-1).max(1).optional(),
+  directionY: z.number().finite().min(-1).max(1).optional(),
+  directionZ: z.number().finite().min(-1).max(1).optional(),
 });
 type PendingSocialRequest = { id: string; roomId: string; fromId: string; toId: string; action: 'hold_hands' | 'kiss' | 'peck' | 'handsy' | 'hug'; createdAt: number };
 const pendingSocialRequests = new Map<string, PendingSocialRequest>();
@@ -137,7 +140,7 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
     socket.on('social:action', (payload: unknown) => {
       const parsed = SocialSchema.safeParse(payload);
       if (!parsed.success) return;
-      const { action, targetId, requestId, rating, seatX, seatZ, returnX, returnZ, returnRotation, startX, startY, startZ, hitX, hitY, hitZ, normalX, normalY, normalZ } = parsed.data;
+      const { action, targetId, requestId, rating, seatX, seatZ, returnX, returnZ, returnRotation, startX, startY, startZ, hitX, hitY, hitZ, normalX, normalY, normalZ, directionX, directionY, directionZ } = parsed.data;
       // Rejeita lançamentos sem coordenadas calculadas pela mira atual. Nunca substitui
       // a mira ausente por um ponto fixo no telão ou em qualquer outra parte da sala.
       if ((action === 'throw_popcorn' || action === 'throw_tomato' || action === 'throw_egg') &&
@@ -154,7 +157,7 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
         if (targetPerson) { targetPerson.action = actualAction; targetPerson.actionAt = now; }
         io.to(roomId).emit('social:effect', {
           id: randomUUID(), action: actualAction, actorId: actor.id, targetId: targetPerson?.id, sentAt: now,
-          ...(actualAction === 'throw_popcorn' || actualAction === 'throw_tomato' || actualAction === 'throw_egg' ? { startX, startY, startZ, hitX, hitY, hitZ, normalX, normalY, normalZ } : {}),
+          ...(actualAction === 'throw_popcorn' || actualAction === 'throw_tomato' || actualAction === 'throw_egg' ? { startX, startY, startZ, hitX, hitY, hitZ, normalX, normalY, normalZ, directionX, directionY, directionZ } : {}),
         });
         io.to(roomId).emit('avatar:moved', safeParticipant(actor));
         if (targetPerson) io.to(roomId).emit('avatar:moved', safeParticipant(targetPerson));
