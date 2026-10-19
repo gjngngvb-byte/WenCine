@@ -119,6 +119,10 @@ export function ThrownSnack({ effect }: { effect: ProjectileEffectData }) {
       kernelRefs.current.forEach((mesh, i) => {
         if (!mesh) return;
         const kernel = kernels[i];
+        if (!kernel) {
+          mesh.visible = false;
+          return;
+        }
         const t = Math.min(age, 1.5);
         const x = origin.x + kernel.x + kernel.vx * t;
         const y = origin.y + kernel.y + kernel.vy * t - 4.9 * t * t;
