@@ -323,7 +323,10 @@ export function RoomExperience({ roomId }: { roomId: string }) {
       return;
     }
     const current = positionRef.current;
-    const start = { startX: current.x + Math.sin(current.rotation) * 0.3, startY: 1.12, startZ: current.z + Math.cos(current.rotation) * 0.3 };
+    const aimYaw = cameraYawRef.current;
+    // O projétil nasce à frente do avatar na direção real da câmera, não na rotação antiga do corpo.
+    // Isso evita que ele apareça atrás do jogador quando a câmera de terceira pessoa gira.
+    const start = { startX: current.x + Math.sin(aimYaw) * 0.42, startY: pose === 'sitting_chair' ? 0.95 : 1.22, startZ: current.z - Math.cos(aimYaw) * 0.42 };
     const impact = aim ? { hitX: aim.x, hitY: aim.y, hitZ: aim.z, normalX: aim.nx, normalY: aim.ny, normalZ: aim.nz } : {};
     socketRef.current?.emit('social:action', { action, ...(isThrow ? { ...start, ...impact } : {}), ...extra });
     setSocialStatus(action === 'offer_hand' ? 'Pedido de mão enviado.' : '');
