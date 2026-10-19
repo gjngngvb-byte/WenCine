@@ -47,13 +47,11 @@ function seeded(seed: string, index: number): number {
 }
 
 export function ThrownSnack({ effect }: { effect: ProjectileEffectData }) {
-  const { scene } = useThree();
+  useThree();
   const projectile = useRef<THREE.Group>(null);
   const kernelRefs = useRef<Array<THREE.Mesh | null>>([]);
-  const previousPoint = useRef<THREE.Vector3 | null>(null);
   const impactRef = useRef<Impact | null>(null);
   const [impact, setImpact] = useState<Impact | null>(null);
-  const raycaster = useMemo(() => new THREE.Raycaster(), []);
   const isTomato = effect.action === 'throw_tomato';
   const isEgg = effect.action === 'throw_egg';
   const isPopcorn = effect.action === 'throw_popcorn';
@@ -79,37 +77,25 @@ export function ThrownSnack({ effect }: { effect: ProjectileEffectData }) {
   useFrame(() => {
     const elapsed = Math.max(0, (Date.now() - launchAt) / 1000);
     if (!impactRef.current) {
-      // O ponto marcado pela mira define a trajetória inicial, não uma colisão
-      // automática no ar. O projétil continua voando até tocar uma superfície real.
+      // O emissor define hitX/Y/Z e a normal no evento de rede. Não fazemos
+      // raycast de colisão aqui: cada cliente tem avatares/objetos locais
+      // ligeiramente diferentes, o que fazia cada tela inventar outro impacto.
       const arcProgress = Math.min(1, elapsed / flight) * (arcPoints.length - 1);
       const arcIndex = Math.min(arcPoints.length - 2, Math.floor(arcProgress));
       const arcBlend = arcProgress - arcIndex;
       const arcStart = arcPoints[arcIndex] ?? start;
       const arcEnd = arcPoints[arcIndex + 1] ?? target;
-      const next = elapsed <= flight
+      const next = elapsed < flight
         ? arcStart.clone().lerp(arcEnd, arcBlend)
         : target.clone();
-      const previous = previousPoint.current ?? start.clone();
-      const segment = next.clone().sub(previous);
-      const distance = segment.length();
 
-      if (distance > 0.0001) {
-        raycaster.set(previous, segment.normalize());
-        raycaster.near = 0.001;
-        raycaster.far = distance + 0.03;
-        const hit = raycaster.intersectObjects(scene.children, true).find((item) => !isExcluded(item.object));
-        if (hit) {
-          const normal = hit.face
-            ? hit.face.normal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld)).normalize()
-            : new THREE.Vector3(0, 1, 0);
-          const nextImpact = { point: hit.point.clone(), normal, at: Date.now() };
-          impactRef.current = nextImpact;
-          setImpact(nextImpact);
-        }
+      if (projectile.current) projectile.current.position.copy(next);
+      if (elapsed >= flight) {
+        const normal = new THREE.Vector3(effect.normalX ?? 0, effect.normalY ?? 1, effect.normalZ ?? 0).normalize();
+        const nextImpact = { point: target.clone(), normal, at: launchAt + flight * 1000 };
+        impactRef.current = nextImpact;
+        setImpact(nextImpact);
       }
-
-      previousPoint.current = next;
-      if (projectile.current && !impactRef.current) projectile.current.position.copy(next);
     }
 
     if (projectile.current) projectile.current.visible = !impactRef.current;
