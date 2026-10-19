@@ -17,8 +17,8 @@ describe('projectile trajectory', () => {
     const end = projectilePositionAt(start, velocity, flight);
 
     expect(points).toHaveLength(33);
-    expect(points[0].distanceTo(start)).toBeLessThan(1e-8);
-    expect(points[32].distanceTo(target)).toBeLessThan(1e-8);
+    expect(points[0]!.distanceTo(start)).toBeLessThan(1e-8);
+    expect(points[32]!.distanceTo(target)).toBeLessThan(1e-8);
     expect(end.distanceTo(target)).toBeLessThan(1e-8);
   });
 
@@ -28,6 +28,6 @@ describe('projectile trajectory', () => {
     const points = buildProjectileArc(start, target, 32);
 
     expect(Math.max(...points.map((point) => point.y))).toBeGreaterThan(start.y);
-    expect(points[16].z).toBeCloseTo(-4, 1);
+    expect(points[16]!.z).toBeCloseTo(-4, 1);
   });
 });
