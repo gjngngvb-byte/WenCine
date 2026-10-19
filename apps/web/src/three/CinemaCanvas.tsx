@@ -142,7 +142,15 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
       Math.sin(pitch),
       -Math.cos(yaw) * Math.cos(pitch),
     ).normalize();
-    const target = getProjectileAimPoint(camera, scene, raycaster, 30, cameraDirection);
+    const handHeight = pose === 'sitting_chair' ? 0.95 : 1.22;
+    const hand = new THREE.Vector3(
+      position.x + cameraDirection.x * 0.42,
+      handHeight + cameraDirection.y * 0.42,
+      position.z + cameraDirection.z * 0.42,
+    );
+    // O raio começa na mão e segue a câmera. Assim, olhar para trás lança para trás,
+    // mesmo se o corpo continuar virado para a tela, sem mirar através do próprio avatar.
+    const target = getProjectileAimPoint(camera, scene, raycaster, 30, cameraDirection, hand);
     return {
       ...target,
       directionX: cameraDirection.x,
