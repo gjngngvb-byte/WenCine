@@ -131,13 +131,17 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
   const trajectoryLine = useRef<THREE.Line>(null);
   const trajectoryObject = useMemo(() => new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: '#fff2b3', transparent: true, opacity: 0.95, depthTest: false })), []);
   aimPointCallback.current = onAimPoint;
-  const getAimPoint = useCallback((): AimPoint => {
-    // A orientação real da câmera é a única fonte da direção do lançamento.
-    // Não derivar o vetor da posição do avatar até o alvo: isso faz W/S alterar
-    // o ângulo por paralaxe quando o personagem se move em terceira pessoa.
+  const getAimPoint = useCallback((yaw = cameraYaw, pitch = cameraPitch): AimPoint => {
+    // Usa a direção do controle de câmera, não a matriz interpolada do frame anterior.
+    // Convenção da sala: yaw 0 aponta para a tela (-Z); yaw 180° aponta para trás (+Z).
+    // Isso evita inverter profundidade ou deixar a trajetória depender do deslocamento W/S.
     camera.updateMatrixWorld(true);
     scene.updateMatrixWorld(true);
-    const cameraDirection = camera.getWorldDirection(new THREE.Vector3()).normalize();
+    const cameraDirection = new THREE.Vector3(
+      Math.sin(yaw) * Math.cos(pitch),
+      Math.sin(pitch),
+      -Math.cos(yaw) * Math.cos(pitch),
+    ).normalize();
     const target = getProjectileAimPoint(camera, scene, raycaster, 30, cameraDirection);
     return {
       ...target,
@@ -145,7 +149,7 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
       directionY: cameraDirection.y,
       directionZ: cameraDirection.z,
     };
-  }, [camera, scene, raycaster, position.x, position.z, pose]);
+  }, [camera, scene, raycaster, cameraYaw, cameraPitch, position.x, position.z, pose]);
   if (aimPointGetterRef) aimPointGetterRef.current = getAimPoint;
   useFrame((_, delta) => {
     const lookDirection = new THREE.Vector3(Math.sin(cameraYaw), Math.tan(cameraPitch), -Math.cos(cameraYaw)).normalize();
