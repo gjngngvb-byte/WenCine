@@ -89,8 +89,10 @@ export function ThrownSnack({ effect }: { effect: ProjectileEffectData }) {
       const arcProgress = Math.min(1, elapsed / flight) * (arcPoints.length - 1);
       const arcIndex = Math.min(arcPoints.length - 2, Math.floor(arcProgress));
       const arcBlend = arcProgress - arcIndex;
+      const arcStart = arcPoints[arcIndex] ?? start;
+      const arcEnd = arcPoints[arcIndex + 1] ?? target;
       const next = elapsed <= flight
-        ? arcPoints[arcIndex].clone().lerp(arcPoints[arcIndex + 1], arcBlend)
+        ? arcStart.clone().lerp(arcEnd, arcBlend)
         : projectilePositionAt(start, velocity, elapsed);
       const previous = previousPoint.current ?? start.clone();
       const segment = next.clone().sub(previous);
