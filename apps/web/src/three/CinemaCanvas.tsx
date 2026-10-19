@@ -11,7 +11,7 @@ type Participant = {
   id: string; displayName: string; color: string; accessory: string; expression: string;
   x: number; z: number; rotation: number; connected: boolean; pose?: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; holdingHandsWith?: string;
 };
-type SocialEffect = { id: string; action: string; actorId: string; targetId?: string; sentAt: number; receivedAt?: number; startX?: number; startY?: number; startZ?: number; hitX?: number; hitY?: number; hitZ?: number; normalX?: number; normalY?: number; normalZ?: number };
+type SocialEffect = { id: string; action: string; actorId: string; targetId?: string; sentAt: number; receivedAt?: number; startX?: number; startY?: number; startZ?: number; hitX?: number; hitY?: number; hitZ?: number; normalX?: number; normalY?: number; normalZ?: number; directionX?: number; directionY?: number; directionZ?: number };
 type CameraMode = 'third' | 'first';
 type AimPoint = { x: number; y: number; z: number; nx: number; ny: number; nz: number; directionX: number; directionY: number; directionZ: number };
 type AimPointGetterRef = { current: ((yaw: number, pitch: number) => AimPoint | null) | null };
