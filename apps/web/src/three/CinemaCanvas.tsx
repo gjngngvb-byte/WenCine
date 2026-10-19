@@ -4,7 +4,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import { useCallback, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { buildProjectileArc, getProjectileAimPoint } from './projectiles/trajectory';
+import { buildProjectileArcFromDirection, getProjectileAimPoint } from './projectiles/trajectory';
 import { ThrownSnack } from './projectiles/ProjectileEffects';
 
 type Participant = {
@@ -176,7 +176,7 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
         );
         const target = getAimPoint(cameraYaw, cameraPitch);
         const end = new THREE.Vector3(target.x, target.y, target.z);
-        line.geometry.setFromPoints(buildProjectileArc(start, end, 96));
+        line.geometry.setFromPoints(buildProjectileArcFromDirection(start, new THREE.Vector3(Math.sin(cameraYaw) * Math.cos(cameraPitch), Math.sin(cameraPitch), -Math.cos(cameraYaw) * Math.cos(cameraPitch)).normalize(), 96));
       }
     }
   });
