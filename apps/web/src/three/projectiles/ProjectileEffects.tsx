@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import {
   buildProjectileArcToTarget,
@@ -29,16 +29,6 @@ export type ProjectileEffectData = {
 
 type Impact = { point: THREE.Vector3; normal: THREE.Vector3; at: number };
 
-function isExcluded(object: THREE.Object3D): boolean {
-  let node: THREE.Object3D | null = object;
-  while (node) {
-    if (node.userData?.isSocialEffect || node.userData?.isLocalAvatar || node.userData?.isProjectilePreview) return true;
-    if (!node.visible) return true;
-    node = node.parent;
-  }
-  return false;
-}
-
 function seeded(seed: string, index: number): number {
   let value = index + 1;
   for (let i = 0; i < seed.length; i += 1) value = (Math.imul(value ^ seed.charCodeAt(i), 16777619) >>> 0);
@@ -47,7 +37,6 @@ function seeded(seed: string, index: number): number {
 }
 
 export function ThrownSnack({ effect }: { effect: ProjectileEffectData }) {
-  useThree();
   const projectile = useRef<THREE.Group>(null);
   const kernelRefs = useRef<Array<THREE.Mesh | null>>([]);
   const impactRef = useRef<Impact | null>(null);
