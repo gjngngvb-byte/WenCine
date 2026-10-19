@@ -12,7 +12,7 @@ const PositionSchema = z.object({ x: z.number().finite(), z: z.number().finite()
 const ChatSchema = z.object({ message: z.string().trim().min(1).max(500) });
 const SocialSchema = z.object({
   action: z.enum(['sit', 'sit_floor', 'sit_chair', 'stand', 'fall', 'offer_hand', 'accept_interaction', 'decline_interaction', 'release_hand',
-    'share_popcorn', 'kiss', 'peck', 'slap', 'throw_popcorn', 'throw_tomato', 'steal_popcorn', 'handsy', 'hug', 'rate_film', 'jump', 'crouch', 'lie_back']),
+    'share_popcorn', 'kiss', 'peck', 'slap', 'throw_popcorn', 'throw_tomato', 'throw_egg', 'steal_popcorn', 'handsy', 'hug', 'rate_film', 'jump', 'crouch', 'lie_back']),
   targetId: z.string().uuid().optional(),
   requestId: z.string().uuid().optional(),
   rating: z.number().int().min(1).max(5).optional(),
@@ -21,6 +21,9 @@ const SocialSchema = z.object({
   returnX: z.number().finite().min(-9.05).max(9.05).optional(),
   returnZ: z.number().finite().min(-9.35).max(9.2).optional(),
   returnRotation: z.number().finite().optional(),
+  startX: z.number().finite().min(-20).max(20).optional(),
+  startY: z.number().finite().min(-2).max(12).optional(),
+  startZ: z.number().finite().min(-20).max(20).optional(),
   hitX: z.number().finite().min(-20).max(20).optional(),
   hitY: z.number().finite().min(-2).max(12).optional(),
   hitZ: z.number().finite().min(-20).max(20).optional(),
@@ -134,11 +137,11 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
     socket.on('social:action', (payload: unknown) => {
       const parsed = SocialSchema.safeParse(payload);
       if (!parsed.success) return;
-      const { action, targetId, requestId, rating, seatX, seatZ, returnX, returnZ, returnRotation, hitX, hitY, hitZ, normalX, normalY, normalZ } = parsed.data;
+      const { action, targetId, requestId, rating, seatX, seatZ, returnX, returnZ, returnRotation, startX, startY, startZ, hitX, hitY, hitZ, normalX, normalY, normalZ } = parsed.data;
       // Rejeita lançamentos sem coordenadas calculadas pela mira atual. Nunca substitui
       // a mira ausente por um ponto fixo no telão ou em qualquer outra parte da sala.
-      if ((action === 'throw_popcorn' || action === 'throw_tomato') &&
-          (hitX === undefined || hitY === undefined || hitZ === undefined)) {
+      if ((action === 'throw_popcorn' || action === 'throw_tomato' || action === 'throw_egg') &&
+          (startX === undefined || startY === undefined || startZ === undefined || hitX === undefined || hitY === undefined || hitZ === undefined)) {
         socket.emit('social:response', { accepted: false, message: 'Mire para um ponto válido antes de lançar.' });
         return;
       }
@@ -151,7 +154,7 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
         if (targetPerson) { targetPerson.action = actualAction; targetPerson.actionAt = now; }
         io.to(roomId).emit('social:effect', {
           id: randomUUID(), action: actualAction, actorId: actor.id, targetId: targetPerson?.id, sentAt: now,
-          ...(actualAction === 'throw_popcorn' || actualAction === 'throw_tomato' ? { hitX, hitY, hitZ, normalX, normalY, normalZ } : {}),
+          ...(actualAction === 'throw_popcorn' || actualAction === 'throw_tomato' || actualAction === 'throw_egg' ? { startX, startY, startZ, hitX, hitY, hitZ, normalX, normalY, normalZ } : {}),
         });
         io.to(roomId).emit('avatar:moved', safeParticipant(actor));
         if (targetPerson) io.to(roomId).emit('avatar:moved', safeParticipant(targetPerson));
@@ -302,8 +305,8 @@ export function attachRealtime(server: HttpServer, allowedOrigins: string[]) {
         if (target.socketId) io.to(target.socketId).emit('social:request', { requestId: id, fromId: actor.id, fromName: actor.displayName, action: requestedAction });
         return;
       }
-      if (action === 'share_popcorn' || action === 'slap' || action === 'throw_popcorn' || action === 'throw_tomato' || action === 'steal_popcorn') {
-        if (action !== 'throw_popcorn' && action !== 'throw_tomato' && (!target || !target.connected || target.id === actor.id || !closeEnough(actor, target))) return;
+      if (action === 'share_popcorn' || action === 'slap' || action === 'throw_popcorn' || action === 'throw_tomato' || action === 'throw_egg' || action === 'steal_popcorn') {
+        if (action !== 'throw_popcorn' && action !== 'throw_tomato' && action !== 'throw_egg' && (!target || !target.connected || target.id === actor.id || !closeEnough(actor, target))) return;
         if (target?.displayName === 'Bot de Teste') { notifyAction(target, action); return; }
         const seatedTogether = Boolean(target && actor.pose === 'sitting_chair' && target.pose === 'sitting_chair' && Math.hypot(actor.x - target.x, actor.z - target.z) <= 1.85);
         if (target && !seatedTogether && (action === 'slap' || action === 'steal_popcorn')) {
