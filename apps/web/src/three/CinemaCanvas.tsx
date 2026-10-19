@@ -132,17 +132,19 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
   const trajectoryObject = useMemo(() => new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: '#fff2b3', transparent: true, opacity: 0.95, depthTest: false })), []);
   aimPointCallback.current = onAimPoint;
   const getAimPoint = useCallback((): AimPoint => {
-    // Primeiro, encontra o ponto exato no raio que sai do centro da câmera.
-    // Depois calcula a direção da mão do avatar ATÉ esse ponto. Em terceira pessoa,
-    // usar apenas o vetor paralelo da câmera faz o objeto passar ao lado da mira.
+    // A orientação real da câmera é a única fonte da direção do lançamento.
+    // Não derivar o vetor da posição do avatar até o alvo: isso faz W/S alterar
+    // o ângulo por paralaxe quando o personagem se move em terceira pessoa.
     camera.updateMatrixWorld(true);
     scene.updateMatrixWorld(true);
     const cameraDirection = camera.getWorldDirection(new THREE.Vector3()).normalize();
     const target = getProjectileAimPoint(camera, scene, raycaster, 30, cameraDirection);
-    const handHeight = pose === 'sitting_chair' ? 0.95 : 1.22;
-    const hand = new THREE.Vector3(position.x, handHeight, position.z);
-    const direction = new THREE.Vector3(target.x, target.y, target.z).sub(hand).normalize();
-    return { ...target, directionX: direction.x, directionY: direction.y, directionZ: direction.z };
+    return {
+      ...target,
+      directionX: cameraDirection.x,
+      directionY: cameraDirection.y,
+      directionZ: cameraDirection.z,
+    };
   }, [camera, scene, raycaster, position.x, position.z, pose]);
   if (aimPointGetterRef) aimPointGetterRef.current = getAimPoint;
   useFrame((_, delta) => {
