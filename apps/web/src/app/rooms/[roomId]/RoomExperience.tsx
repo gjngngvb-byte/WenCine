@@ -330,7 +330,8 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     // Isso evita que ele apareça atrás do jogador quando a câmera de terceira pessoa gira.
     const pitch = cameraPitchRef.current;
     const direction = { directionX: aim?.directionX ?? Math.sin(aimYaw) * Math.cos(pitch), directionY: aim?.directionY ?? Math.sin(pitch), directionZ: aim?.directionZ ?? -Math.cos(aimYaw) * Math.cos(pitch) };
-    const start = { startX: current.x + direction.directionX * 0.42, startY: pose === 'sitting_chair' ? 0.95 : 1.22, startZ: current.z + direction.directionZ * 0.42 };
+    const handHeight = pose === 'sitting_chair' ? 0.95 : 1.22;
+    const start = { startX: current.x + direction.directionX * 0.42, startY: handHeight + direction.directionY * 0.42, startZ: current.z + direction.directionZ * 0.42 };
     const impact = aim ? { hitX: aim.x, hitY: aim.y, hitZ: aim.z, normalX: aim.nx, normalY: aim.ny, normalZ: aim.nz } : {};
     socketRef.current?.emit('social:action', { action, ...(isThrow ? { ...start, ...impact, ...direction } : {}), ...extra });
     setSocialStatus(action === 'offer_hand' ? 'Pedido de mão enviado.' : '');
