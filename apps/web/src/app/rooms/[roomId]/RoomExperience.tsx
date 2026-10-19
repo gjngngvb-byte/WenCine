@@ -43,6 +43,8 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   const aimPointRef = useRef<{ x: number; y: number; z: number; nx: number; ny: number; nz: number } | null>(null);
   const aimPointGetterRef = useRef<((yaw: number, pitch: number) => { x: number; y: number; z: number; nx: number; ny: number; nz: number } | null) | null>(null);
   const [aimingAction, setAimingAction] = useState<'throw_popcorn' | 'throw_tomato' | null>(null);
+  const aimingActionRef = useRef<'throw_popcorn' | 'throw_tomato' | null>(null);
+  const socialActionRef = useRef<((action: string) => void) | null>(null);
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null);
   const [pendingRequest, setPendingRequest] = useState<{ requestId: string; fromId: string; fromName: string; action: string } | null>(null);
   const [socialStatus, setSocialStatus] = useState('');
@@ -214,6 +216,16 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     return () => { window.cancelAnimationFrame(frame); window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp); window.removeEventListener('blur', clearKeys); };
   }, [move]);
   useEffect(() => {
+    // Pointer Lock pode impedir que o wrapper receba pointerup em alguns navegadores.
+    // Soltar o botão na janela garante que a ação carregada seja lançada uma única vez.
+    const onMouseUp = (event: MouseEvent) => {
+      const action = event.button === 0 ? 'throw_popcorn' : event.button === 2 ? 'throw_tomato' : null;
+      if (!action || aimingActionRef.current !== action) return;
+      aimingActionRef.current = null;
+      setAimingAction(null);
+      socialActionRef.current?.(action);
+    };
+    window.addEventListener('mouseup', onMouseUp);
     const onMouseMove = (event: MouseEvent) => {
       const canvas = canvasWrapRef.current?.querySelector('canvas');
       if (!canvas || document.pointerLockElement !== canvas) return;
@@ -236,7 +248,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
       }
     };
     document.addEventListener('mousemove', onMouseMove);
-    return () => document.removeEventListener('mousemove', onMouseMove);
+    return () => { window.removeEventListener('mouseup', onMouseUp); document.removeEventListener('mousemove', onMouseMove); };
   }, [cameraMode, color, accessory, expression]);
   const updateJoystick = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     const element = joystickRef.current;
@@ -313,6 +325,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     socketRef.current?.emit('social:action', { action, ...(isThrow ? { ...start, ...impact } : {}), ...extra });
     setSocialStatus(action === 'offer_hand' ? 'Pedido de mão enviado.' : '');
   }
+  socialActionRef.current = (action: string) => socialAction(action);
   function sitInChair(seat: { x: number; z: number }) {
     // Aproxima por um dos lados livres da cadeira, sem atravessar a colisão do assento.
     const current = positionRef.current;
@@ -347,7 +360,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     <div className="experience-layout"><section className="cinema-stage"><div className="stage-label"><span>WENCINE / SALA 3D</span><span>{participants.filter((p) => p.connected).length} participante(s)</span></div>
       <div className="screen-mode-toolbar"><button type="button" onClick={() => { document.exitPointerLock?.(); setScreenMode('normal'); }}>Sair da tela cheia</button></div>
       <div className="camera-mode-hint" aria-live="polite">{aimingAction ? (aimingAction === 'throw_popcorn' ? '🍿 Segure o botão esquerdo: mire e solte para lançar' : '🍅 Segure o botão direito: mire e solte para lançar') : (cameraMode === 'third' ? 'Terceira pessoa' : 'Primeira pessoa') + ' · segure esquerdo = pipoca · segure direito = tomate · clique no scroll = ovos · TAB troca câmera · Esc libera o mouse'}</div>
-      <div className="canvas-wrap" ref={canvasWrapRef} onPointerDown={(event) => { if (!(event.target instanceof HTMLCanvasElement)) return; event.preventDefault(); if (document.pointerLockElement !== event.target) void event.target.requestPointerLock(); if (event.button === 1) { setAimingAction(null); socialAction('throw_egg'); return; } const action = event.button === 0 ? 'throw_popcorn' : event.button === 2 ? 'throw_tomato' : null; if (action) setAimingAction(action); }} onPointerUp={(event) => { const action = event.button === 0 ? 'throw_popcorn' : event.button === 2 ? 'throw_tomato' : null; if (action && aimingAction === action) { setAimingAction(null); socialAction(action); } }} onPointerCancel={() => setAimingAction(null)} onContextMenu={(event) => event.preventDefault()} onWheel={(event) => { if (cameraMode !== 'third') return; event.preventDefault(); setCameraDistance((current) => Math.max(1.8, Math.min(8, current + (event.deltaY > 0 ? 0.45 : -0.45)))); }}><CinemaCanvas participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} aimingAction={aimingAction} nearbySeat={nearestSeatDistance <= 1.3 && pose === 'standing' ? nearestSeat : null} onSitChair={(seat) => sitInChair(seat)} onSelectParticipant={(id) => setSelectedParticipantId(id)} onAimPoint={(point) => { aimPointRef.current = point; }} aimPointGetterRef={aimPointGetterRef} cameraMode={cameraMode} cameraYaw={cameraYaw} cameraPitch={cameraPitch} cameraDistance={cameraDistance} /></div>
+      <div className="canvas-wrap" ref={canvasWrapRef} onPointerDown={(event) => { if (!(event.target instanceof HTMLCanvasElement)) return; event.preventDefault(); if (event.button === 1) { event.stopPropagation(); aimingActionRef.current = null; setAimingAction(null); socialAction('throw_egg'); if (document.pointerLockElement !== event.target) void event.target.requestPointerLock(); return; } const action = event.button === 0 ? 'throw_popcorn' : event.button === 2 ? 'throw_tomato' : null; if (action) { aimingActionRef.current = action; setAimingAction(action); } if (document.pointerLockElement !== event.target) void event.target.requestPointerLock(); }} onPointerUp={(event) => { const action = event.button === 0 ? 'throw_popcorn' : event.button === 2 ? 'throw_tomato' : null; if (action && aimingActionRef.current === action) { aimingActionRef.current = null; setAimingAction(null); socialAction(action); } }} onPointerCancel={() => { aimingActionRef.current = null; setAimingAction(null); }} onContextMenu={(event) => event.preventDefault()} onWheel={(event) => { if (cameraMode !== 'third') return; event.preventDefault(); setCameraDistance((current) => Math.max(1.8, Math.min(8, current + (event.deltaY > 0 ? 0.45 : -0.45)))); }}><CinemaCanvas participants={participants} selfId={selfId} position={position} color={color} accessory={accessory} expression={expression} pose={pose} socialEffects={socialEffects} aimingAction={aimingAction} nearbySeat={nearestSeatDistance <= 1.3 && pose === 'standing' ? nearestSeat : null} onSitChair={(seat) => sitInChair(seat)} onSelectParticipant={(id) => setSelectedParticipantId(id)} onAimPoint={(point) => { aimPointRef.current = point; }} aimPointGetterRef={aimPointGetterRef} cameraMode={cameraMode} cameraYaw={cameraYaw} cameraPitch={cameraPitch} cameraDistance={cameraDistance} /></div>
       {screenMode === 'cinema' && <section className="cinema-chat-overlay" aria-label="Chat ao vivo"><div className="cinema-chat-heading"><strong>Chat ao vivo</strong><span>● AO VIVO</span></div><div className="cinema-chat-messages" aria-live="polite">{messages.length ? messages.slice(-30).map((chat) => <article className="cinema-chat-message" key={chat.id}><strong>{chat.displayName}{chat.role === 'owner' ? ' 👑' : ''}</strong><span>{chat.message}</span></article>) : <p>As mensagens aparecerão aqui.</p>}</div><form className="cinema-chat-form" onSubmit={sendChat}><input value={message} onChange={(event) => setMessage(event.target.value)} maxLength={500} placeholder="Enviar mensagem…" aria-label="Mensagem do chat ao vivo" /><button type="submit" disabled={!message.trim()} aria-label="Enviar mensagem">↑</button></form></section>}
       <div className="movement-help">WASD / setas: andar · Espaço: pular · E: interagir · Shift: correr · Ctrl: agachar · Ctrl duas vezes: deitar</div>
       <div className="mobile-controls" aria-label="Controles de movimentação">
