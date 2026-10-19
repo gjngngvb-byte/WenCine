@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import {
+  buildProjectileArc,
   projectileFlightSeconds,
   projectilePositionAt,
   solveProjectileVelocity,
@@ -66,6 +67,9 @@ export function ThrownSnack({ effect }: { effect: ProjectileEffectData }) {
   );
   const flight = useMemo(() => projectileFlightSeconds(start, target), [start, target]);
   const velocity = useMemo(() => solveProjectileVelocity(start, target, flight), [start, target, flight]);
+  // Use the exact same sampled parabola as the aiming preview, not a separately
+  // advanced position that can drift away from the visible line between frames.
+  const arcPoints = useMemo(() => buildProjectileArc(start, target, 96), [start, target]);
   const launchAt = effect.receivedAt ?? effect.sentAt;
   const kernels = useMemo(() => Array.from({ length: 14 }, (_, i) => ({
     x: (seeded(effect.id, i * 3) - 0.5) * 0.16,
@@ -82,7 +86,12 @@ export function ThrownSnack({ effect }: { effect: ProjectileEffectData }) {
     if (!impactRef.current) {
       // O ponto marcado pela mira define a trajetória inicial, não uma colisão
       // automática no ar. O projétil continua voando até tocar uma superfície real.
-      const next = projectilePositionAt(start, velocity, elapsed);
+      const arcProgress = Math.min(1, elapsed / flight) * (arcPoints.length - 1);
+      const arcIndex = Math.min(arcPoints.length - 2, Math.floor(arcProgress));
+      const arcBlend = arcProgress - arcIndex;
+      const next = elapsed <= flight
+        ? arcPoints[arcIndex].clone().lerp(arcPoints[arcIndex + 1], arcBlend)
+        : projectilePositionAt(start, velocity, elapsed);
       const previous = previousPoint.current ?? start.clone();
       const segment = next.clone().sub(previous);
       const distance = segment.length();
