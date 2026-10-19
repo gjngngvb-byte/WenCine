@@ -63,8 +63,8 @@ export function ThrownSnack({ effect }: { effect: ProjectileEffectData }) {
     [effect.startX, effect.startY, effect.startZ],
   );
   const flight = PROJECTILE_FLIGHT_SECONDS;
-  const arcPoints = useMemo(() => buildProjectileArcToTarget(start, target, 96), [start, target]);
   const target = useMemo(() => new THREE.Vector3(effect.hitX ?? 0, effect.hitY ?? 1, effect.hitZ ?? -8), [effect.hitX, effect.hitY, effect.hitZ]);
+  const arcPoints = useMemo(() => buildProjectileArcToTarget(start, target, 96), [start, target]);
   const launchAt = effect.receivedAt ?? effect.sentAt;
   const kernels = useMemo(() => Array.from({ length: 14 }, (_, i) => ({
     x: (seeded(effect.id, i * 3) - 0.5) * 0.16,
