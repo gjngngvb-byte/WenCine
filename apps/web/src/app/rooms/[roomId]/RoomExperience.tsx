@@ -5,8 +5,11 @@ import { useRouter } from 'next/navigation';
 import { io, type Socket } from 'socket.io-client';
 import { CinemaCanvas } from '../../../three/CinemaCanvas';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL ?? API;
+const isProjectilePreview = typeof window !== 'undefined' && window.location.hostname.includes('feat-hold-to-aim-projectiles');
+// A prévia do frontend precisa conversar com o backend da mesma branch. O Render de produção
+// continua na main e não conhece os novos campos/ação throw_egg.
+const API = isProjectilePreview ? 'https://wencine-projectile-test.onrender.com' : (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000');
+const SOCKET_URL = isProjectilePreview ? API : (process.env.NEXT_PUBLIC_SOCKET_URL ?? API);
 type Participant = { id: string; displayName: string; role: 'owner' | 'member'; color: string; accessory: string; expression: string; x: number; z: number; rotation: number; connected: boolean; pose?: 'standing' | 'sitting' | 'sitting_chair' | 'fallen' | 'crouching' | 'lying_back'; holdingHandsWith?: string; chairReturnX?: number; chairReturnZ?: number; chairReturnRotation?: number };
 type Room = { id: string; name: string; visibility: 'public' | 'private'; maxParticipants: number; participantCount: number; participants?: Participant[] };
 type ChatMessage = { id: string; participantId: string; displayName: string; role: string; message: string; sentAt: number };
