@@ -131,14 +131,14 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
   const trajectoryLine = useRef<THREE.Line>(null);
   const trajectoryObject = useMemo(() => new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: '#fff2b3', transparent: true, opacity: 0.95, depthTest: false })), []);
   aimPointCallback.current = onAimPoint;
-  const getAimPoint = useCallback((_yaw = cameraYaw, _pitch = cameraPitch): AimPoint => {
+  const getAimPoint = useCallback((): AimPoint => {
     // Usa a direção REAL para a qual a câmera renderizada está olhando.
     // Na terceira pessoa, a câmera fica deslocada atrás do avatar; o vetor yaw/pitch
     // do personagem não é o mesmo raio que sai do centro da tela.
     camera.updateMatrixWorld(true);
     const direction = camera.getWorldDirection(new THREE.Vector3()).normalize();
     return { ...getProjectileAimPoint(camera, scene, raycaster, 30, direction), directionX: direction.x, directionY: direction.y, directionZ: direction.z };
-  }, [camera, scene, raycaster, cameraYaw, cameraPitch]);
+  }, [camera, scene, raycaster]);
   if (aimPointGetterRef) aimPointGetterRef.current = getAimPoint;
   useFrame((_, delta) => {
     const lookDirection = new THREE.Vector3(Math.sin(cameraYaw), Math.tan(cameraPitch), -Math.cos(cameraYaw)).normalize();
@@ -159,7 +159,7 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
       const viewDirection = new THREE.Vector3(Math.sin(cameraYaw) * Math.cos(cameraPitch), Math.sin(cameraPitch), -Math.cos(cameraYaw) * Math.cos(cameraPitch));
       camera.lookAt(focus.clone().add(viewDirection.multiplyScalar(5)));
     }
-    const aim = getAimPoint(cameraYaw, cameraPitch);
+    const aim = getAimPoint();
     aimPointCallback.current?.(aim);
     if (trajectoryLine.current) {
       const line = trajectoryLine.current;
