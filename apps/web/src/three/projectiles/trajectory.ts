@@ -73,7 +73,9 @@ export function solveProjectileVelocity(
 
 export function projectileFlightSeconds(start: THREE.Vector3, target: THREE.Vector3): number {
   const distance = start.distanceTo(target);
-  return THREE.MathUtils.clamp(distance / 14, 0.18, 1.05);
+  // Um tempo mínimo evita arcos quase retos em alvos próximos; o teto evita que
+  // a parábola suba excessivamente ao mirar longe e saia da área visível.
+  return THREE.MathUtils.clamp(distance / 11.5, 0.42, 1.55);
 }
 
 export function projectilePositionAt(
