@@ -176,7 +176,7 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
         );
         const target = getAimPoint(cameraYaw, cameraPitch);
         const end = new THREE.Vector3(target.x, target.y, target.z);
-        line.geometry.setFromPoints(buildProjectileArc(start, end, 32));
+        line.geometry.setFromPoints(buildProjectileArc(start, end, 96));
       }
     }
   });
