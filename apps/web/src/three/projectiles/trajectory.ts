@@ -60,7 +60,7 @@ export function getProjectileAimPoint(
   };
 }
 
-/** A physically consistent ballistic arc that reaches the selected point exactly. */
+/** A ballistic throw whose horizontal direction is locked to the camera, never to the aim point. */
 export function solveProjectileVelocity(
   start: THREE.Vector3,
   target: THREE.Vector3,
