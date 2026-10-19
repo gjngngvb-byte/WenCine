@@ -132,13 +132,18 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
   const trajectoryObject = useMemo(() => new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: '#fff2b3', transparent: true, opacity: 0.95, depthTest: false })), []);
   aimPointCallback.current = onAimPoint;
   const getAimPoint = useCallback((): AimPoint => {
-    // Usa a direção REAL para a qual a câmera renderizada está olhando.
-    // Na terceira pessoa, a câmera fica deslocada atrás do avatar; o vetor yaw/pitch
-    // do personagem não é o mesmo raio que sai do centro da tela.
+    // Primeiro, encontra o ponto exato no raio que sai do centro da câmera.
+    // Depois calcula a direção da mão do avatar ATÉ esse ponto. Em terceira pessoa,
+    // usar apenas o vetor paralelo da câmera faz o objeto passar ao lado da mira.
     camera.updateMatrixWorld(true);
-    const direction = camera.getWorldDirection(new THREE.Vector3()).normalize();
-    return { ...getProjectileAimPoint(camera, scene, raycaster, 30, direction), directionX: direction.x, directionY: direction.y, directionZ: direction.z };
-  }, [camera, scene, raycaster]);
+    scene.updateMatrixWorld(true);
+    const cameraDirection = camera.getWorldDirection(new THREE.Vector3()).normalize();
+    const target = getProjectileAimPoint(camera, scene, raycaster, 30, cameraDirection);
+    const handHeight = pose === 'sitting_chair' ? 0.95 : 1.22;
+    const hand = new THREE.Vector3(position.x, handHeight, position.z);
+    const direction = new THREE.Vector3(target.x, target.y, target.z).sub(hand).normalize();
+    return { ...target, directionX: direction.x, directionY: direction.y, directionZ: direction.z };
+  }, [camera, scene, raycaster, position.x, position.z, pose]);
   if (aimPointGetterRef) aimPointGetterRef.current = getAimPoint;
   useFrame((_, delta) => {
     const lookDirection = new THREE.Vector3(Math.sin(cameraYaw), Math.tan(cameraPitch), -Math.cos(cameraYaw)).normalize();
@@ -168,9 +173,10 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
         const material = line.material as THREE.LineBasicMaterial;
         material.color.set(aimingAction === 'throw_tomato' ? '#ff5757' : '#fff2b3');
         const direction = new THREE.Vector3(aim.directionX, aim.directionY, aim.directionZ).normalize();
+        const handHeight = pose === 'sitting_chair' ? 0.95 : 1.22;
         const start = new THREE.Vector3(
           position.x + direction.x * 0.42,
-          pose === 'sitting_chair' ? 0.95 : 1.22,
+          handHeight + direction.y * 0.42,
           position.z + direction.z * 0.42,
         );
         line.geometry.setFromPoints(buildProjectileArcFromDirection(start, direction, 96));
