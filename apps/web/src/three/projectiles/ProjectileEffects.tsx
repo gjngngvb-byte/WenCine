@@ -80,33 +80,28 @@ export function ThrownSnack({ effect }: { effect: ProjectileEffectData }) {
   useFrame(() => {
     const elapsed = Math.max(0, (Date.now() - launchAt) / 1000);
     if (!impactRef.current) {
-      const t = Math.min(elapsed, flight);
-      const next = projectilePositionAt(start, velocity, t);
+      // O ponto marcado pela mira define a trajetória inicial, não uma colisão
+      // automática no ar. O projétil continua voando até tocar uma superfície real.
+      const next = projectilePositionAt(start, velocity, elapsed);
       const previous = previousPoint.current ?? start.clone();
+      const segment = next.clone().sub(previous);
+      const distance = segment.length();
 
-      if (elapsed >= flight) {
-        const normal = new THREE.Vector3(effect.normalX ?? 0, effect.normalY ?? 1, effect.normalZ ?? 0).normalize();
-        const nextImpact = { point: target.clone(), normal: normal.lengthSq() ? normal : new THREE.Vector3(0, 1, 0), at: Date.now() };
-        impactRef.current = nextImpact;
-        setImpact(nextImpact);
-      } else {
-        const segment = next.clone().sub(previous);
-        const distance = segment.length();
-        if (distance > 0.0001) {
-          raycaster.set(previous, segment.normalize());
-          raycaster.near = 0.001;
-          raycaster.far = distance + 0.02;
-          const hit = raycaster.intersectObjects(scene.children, true).find((item) => !isExcluded(item.object));
-          if (hit) {
-            const normal = hit.face
-              ? hit.face.normal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld)).normalize()
-              : new THREE.Vector3(0, 1, 0);
-            const nextImpact = { point: hit.point.clone(), normal, at: Date.now() };
-            impactRef.current = nextImpact;
-            setImpact(nextImpact);
-          }
+      if (distance > 0.0001) {
+        raycaster.set(previous, segment.normalize());
+        raycaster.near = 0.001;
+        raycaster.far = distance + 0.03;
+        const hit = raycaster.intersectObjects(scene.children, true).find((item) => !isExcluded(item.object));
+        if (hit) {
+          const normal = hit.face
+            ? hit.face.normal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld)).normalize()
+            : new THREE.Vector3(0, 1, 0);
+          const nextImpact = { point: hit.point.clone(), normal, at: Date.now() };
+          impactRef.current = nextImpact;
+          setImpact(nextImpact);
         }
       }
+
       previousPoint.current = next;
       if (projectile.current && !impactRef.current) projectile.current.position.copy(next);
     }
