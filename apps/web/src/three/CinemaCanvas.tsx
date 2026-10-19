@@ -132,11 +132,15 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
   const trajectoryObject = useMemo(() => new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: '#fff2b3', transparent: true, opacity: 0.95, depthTest: false })), []);
   aimPointCallback.current = onAimPoint;
   const getAimPoint = useCallback((yaw = cameraYaw, pitch = cameraPitch): AimPoint => {
-    // O alvo é encontrado pelo raio central da câmera renderizada, não por uma
-    // fórmula paralela de yaw/pitch. O servidor recebe o primeiro objeto real atingido.
-    void yaw;
-    void pitch;
-    return getProjectileAimPoint(camera, scene, raycaster, 30);
+    // Usa a direção mais recente do controle de câmera. No pointer-up, o mouse pode
+    // ter mudado yaw/pitch depois do último frame renderizado; ler só camera.getWorldDirection
+    // reaproveitava a direção antiga e fazia o lançamento acertar o alvo anterior.
+    const direction = new THREE.Vector3(
+      Math.sin(yaw) * Math.cos(pitch),
+      Math.sin(pitch),
+      -Math.cos(yaw) * Math.cos(pitch),
+    ).normalize();
+    return getProjectileAimPoint(camera, scene, raycaster, 30, direction);
   }, [camera, scene, raycaster, cameraYaw, cameraPitch]);
   if (aimPointGetterRef) aimPointGetterRef.current = getAimPoint;
   useFrame((_, delta) => {
