@@ -131,15 +131,12 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
   const trajectoryLine = useRef<THREE.Line>(null);
   const trajectoryObject = useMemo(() => new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: '#fff2b3', transparent: true, opacity: 0.95, depthTest: false })), []);
   aimPointCallback.current = onAimPoint;
-  const getAimPoint = useCallback((yaw = cameraYaw, pitch = cameraPitch): AimPoint => {
-    // Usa a direção mais recente do controle de câmera. No pointer-up, o mouse pode
-    // ter mudado yaw/pitch depois do último frame renderizado; ler só camera.getWorldDirection
-    // reaproveitava a direção antiga e fazia o lançamento acertar o alvo anterior.
-    const direction = new THREE.Vector3(
-      Math.sin(yaw) * Math.cos(pitch),
-      Math.sin(pitch),
-      -Math.cos(yaw) * Math.cos(pitch),
-    ).normalize();
+  const getAimPoint = useCallback((_yaw = cameraYaw, _pitch = cameraPitch): AimPoint => {
+    // Usa a direção REAL para a qual a câmera renderizada está olhando.
+    // Na terceira pessoa, a câmera fica deslocada atrás do avatar; o vetor yaw/pitch
+    // do personagem não é o mesmo raio que sai do centro da tela.
+    camera.updateMatrixWorld(true);
+    const direction = camera.getWorldDirection(new THREE.Vector3()).normalize();
     return { ...getProjectileAimPoint(camera, scene, raycaster, 30, direction), directionX: direction.x, directionY: direction.y, directionZ: direction.z };
   }, [camera, scene, raycaster, cameraYaw, cameraPitch]);
   if (aimPointGetterRef) aimPointGetterRef.current = getAimPoint;
@@ -162,19 +159,21 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
       const viewDirection = new THREE.Vector3(Math.sin(cameraYaw) * Math.cos(cameraPitch), Math.sin(cameraPitch), -Math.cos(cameraYaw) * Math.cos(cameraPitch));
       camera.lookAt(focus.clone().add(viewDirection.multiplyScalar(5)));
     }
-    aimPointCallback.current?.(getAimPoint(cameraYaw, cameraPitch));
+    const aim = getAimPoint(cameraYaw, cameraPitch);
+    aimPointCallback.current?.(aim);
     if (trajectoryLine.current) {
       const line = trajectoryLine.current;
       line.visible = Boolean(aimingAction);
       if (aimingAction) {
         const material = line.material as THREE.LineBasicMaterial;
         material.color.set(aimingAction === 'throw_tomato' ? '#ff5757' : '#fff2b3');
+        const direction = new THREE.Vector3(aim.directionX, aim.directionY, aim.directionZ).normalize();
         const start = new THREE.Vector3(
-          position.x + Math.sin(cameraYaw) * 0.42,
+          position.x + direction.x * 0.42,
           pose === 'sitting_chair' ? 0.95 : 1.22,
-          position.z - Math.cos(cameraYaw) * 0.42,
+          position.z + direction.z * 0.42,
         );
-        line.geometry.setFromPoints(buildProjectileArcFromDirection(start, new THREE.Vector3(Math.sin(cameraYaw) * Math.cos(cameraPitch), Math.sin(cameraPitch), -Math.cos(cameraYaw) * Math.cos(cameraPitch)).normalize(), 96));
+        line.geometry.setFromPoints(buildProjectileArcFromDirection(start, direction, 96));
       }
     }
   });
