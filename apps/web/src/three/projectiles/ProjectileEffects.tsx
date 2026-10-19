@@ -7,7 +7,7 @@ import {
   buildProjectileArc,
   projectileFlightSeconds,
   projectilePositionAt,
-  solveProjectileVelocity,
+  projectileVelocityFromDirection,\n  PROJECTILE_FLIGHT_SECONDS,
 } from './trajectory';
 
 export type ProjectileEffectData = {
