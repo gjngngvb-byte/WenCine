@@ -4,6 +4,8 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import { useCallback, useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { buildProjectileArc, getProjectileAimPoint } from './projectiles/trajectory';
+import { ThrownSnack } from './projectiles/ProjectileEffects';
 
 type Participant = {
   id: string; displayName: string; color: string; accessory: string; expression: string;
@@ -130,41 +132,11 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
   const trajectoryObject = useMemo(() => new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: '#fff2b3', transparent: true, opacity: 0.95, depthTest: false })), []);
   aimPointCallback.current = onAimPoint;
   const getAimPoint = useCallback((yaw = cameraYaw, pitch = cameraPitch): AimPoint => {
-    // Recalcula a mira no instante do arremesso, usando a câmera já atualizada.
-    // Não depende do último ponto salvo pelo frame anterior.
-    scene.updateMatrixWorld(true);
-    camera.updateWorldMatrix(true, false);
-    const origin = camera.getWorldPosition(new THREE.Vector3());
-    // Use the exact yaw/pitch that drives the mouse-look controller instead of
-    // relying on the camera quaternion from the previous rendered frame.
-    // The same angles drive camera.lookAt in both camera modes.
-    const direction = new THREE.Vector3(
-      Math.sin(yaw) * Math.cos(pitch),
-      Math.sin(pitch),
-      -Math.cos(yaw) * Math.cos(pitch),
-    ).normalize();
-    raycaster.set(origin, direction);
-    raycaster.near = 0.05;
-    raycaster.far = 30;
-    const hit = raycaster.intersectObjects(scene.children, true).find((item) => {
-      let node: THREE.Object3D | null = item.object;
-      while (node) {
-        if (node.userData?.isLocalAvatar || node.userData?.isSocialEffect) return false;
-        if (!node.visible) return false;
-        node = node.parent;
-      }
-      return true;
-    });
-    if (hit) {
-      const normal = hit.face
-        ? hit.face.normal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld)).normalize()
-        : new THREE.Vector3(0, 1, 0);
-      return { x: hit.point.x, y: hit.point.y, z: hit.point.z, nx: normal.x, ny: normal.y, nz: normal.z };
-    }
-    return {
-      x: origin.x + direction.x * 20, y: origin.y + direction.y * 20, z: origin.z + direction.z * 20,
-      nx: -direction.x, ny: -direction.y, nz: -direction.z,
-    };
+    // O alvo é encontrado pelo raio central da câmera renderizada, não por uma
+    // fórmula paralela de yaw/pitch. O servidor recebe o primeiro objeto real atingido.
+    void yaw;
+    void pitch;
+    return getProjectileAimPoint(camera, scene, raycaster, 30);
   }, [camera, scene, raycaster, cameraYaw, cameraPitch]);
   if (aimPointGetterRef) aimPointGetterRef.current = getAimPoint;
   useFrame((_, delta) => {
@@ -193,25 +165,14 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
       if (aimingAction) {
         const material = line.material as THREE.LineBasicMaterial;
         material.color.set(aimingAction === 'throw_tomato' ? '#ff5757' : '#fff2b3');
-        const target = getAimPoint(cameraYaw, cameraPitch);
         const start = new THREE.Vector3(
-          position.x + Math.sin(position.rotation) * 0.3,
-          1.12,
-          position.z + Math.cos(position.rotation) * 0.3,
+          position.x + Math.sin(cameraYaw) * 0.42,
+          pose === 'sitting_chair' ? 0.95 : 1.22,
+          position.z - Math.cos(cameraYaw) * 0.42,
         );
+        const target = getAimPoint(cameraYaw, cameraPitch);
         const end = new THREE.Vector3(target.x, target.y, target.z);
-        const horizontalDistance = Math.hypot(end.x - start.x, end.z - start.z);
-        const arcHeight = Math.min(2.4, Math.max(0.3, horizontalDistance * 0.1));
-        const points: THREE.Vector3[] = [];
-        for (let i = 0; i <= 32; i += 1) {
-          const t = i / 32;
-          points.push(new THREE.Vector3(
-            THREE.MathUtils.lerp(start.x, end.x, t),
-            THREE.MathUtils.lerp(start.y, end.y, t) + 4 * arcHeight * t * (1 - t),
-            THREE.MathUtils.lerp(start.z, end.z, t),
-          ));
-        }
-        line.geometry.setFromPoints(points);
+        line.geometry.setFromPoints(buildProjectileArc(start, end, 32));
       }
     }
   });
@@ -241,137 +202,6 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
         ? <ThrownSnack key={effect.id} effect={effect} />
         : null
     )}
-  </>;
-}
-function ThrownSnack({ effect }: { effect: SocialEffect }) {
-  const projectile = useRef<THREE.Mesh>(null);
-  const stain = useRef<THREE.Group>(null);
-  const kernels = useRef<(THREE.Mesh | null)[]>([]);
-  const physics = useRef<Array<{ vx: number; vy: number; vz: number }>>([]);
-  const impactStarted = useRef(false);
-  const start = useMemo(() => new THREE.Vector3(effect.startX!, effect.startY!, effect.startZ!), [effect.startX, effect.startY, effect.startZ]);
-  const hit = useMemo(() => new THREE.Vector3(effect.hitX!, effect.hitY!, effect.hitZ!), [effect.hitX, effect.hitY, effect.hitZ]);
-  const normal = useMemo(() => new THREE.Vector3(effect.normalX ?? 0, effect.normalY ?? 1, effect.normalZ ?? 0).normalize(), [effect.normalX, effect.normalY, effect.normalZ]);
-  const flightMs = 900;
-  const isTomato = effect.action === 'throw_tomato';
-  const isEgg = effect.action === 'throw_egg';
-  const seed = useMemo(() => {
-    let value = 0;
-    for (const char of effect.id) value = (value * 31 + char.charCodeAt(0)) >>> 0;
-    return () => { value = (value * 1664525 + 1013904223) >>> 0; return value / 4294967296; };
-  }, [effect.id]);
-  // Distribui as pipocas sobre o plano da superfície atingida, seja parede, cadeira ou chão.
-  const kernelStarts = useMemo(() => {
-    const reference = Math.abs(normal.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
-    const tangent = new THREE.Vector3().crossVectors(normal, reference).normalize();
-    const bitangent = new THREE.Vector3().crossVectors(normal, tangent).normalize();
-    return Array.from({ length: 12 }, () => {
-      const angle = seed() * Math.PI * 2;
-      const radius = Math.sqrt(seed()) * 0.16;
-      const offset = tangent.clone().multiplyScalar(Math.cos(angle) * radius)
-        .add(bitangent.clone().multiplyScalar(Math.sin(angle) * radius));
-      return { x: offset.x, y: offset.y, z: offset.z };
-    });
-  }, [seed, normal]);
-  const stainParts = useMemo(() => Array.from({ length: isEgg ? 9 : 7 }, (_, i) => {
-    const white = isEgg && i < 5;
-    const center = i === 0 || (isEgg && i === 5);
-    return {
-      // O ovo deixa uma clara irregular e larga, com gema amarela concentrada no centro.
-      x: center ? 0 : (seed() - 0.5) * (white ? 0.42 : 0.24),
-      y: center ? 0 : (seed() - 0.5) * (white ? 0.34 : 0.20),
-      r: isEgg ? (white ? (i === 0 ? 0.25 : 0.12 + seed() * 0.045) : (i === 5 ? 0.115 : 0.045 + seed() * 0.035))
-        : (i === 0 ? 0.17 : 0.045 + seed() * 0.07),
-      color: isTomato ? (i % 2 ? '#b91c1c' : '#ef4444')
-        : isEgg ? (white ? (i % 2 ? '#fffdf4' : '#f8fafc') : (i % 2 ? '#f59e0b' : '#facc15'))
-        : (i % 2 ? '#fff1a8' : '#facc15'),
-    };
-  }), [seed, isTomato, isEgg]);
-  useFrame(() => {
-    const ageMs = Date.now() - (effect.receivedAt ?? effect.sentAt);
-    const t = Math.max(0, Math.min(1, ageMs / flightMs));
-    // Lança da frente do avatar e descreve um arco balístico até o ponto
-    // atingido pela mira da câmera, em vez de deslizar em linha quase reta.
-    const horizontalDistance = Math.hypot(hit.x - start.x, hit.z - start.z);
-    const arcHeight = Math.min(2.4, Math.max(0.3, horizontalDistance * 0.1));
-    const arc = 4 * arcHeight * t * (1 - t);
-    if (projectile.current) {
-      projectile.current.position.set(THREE.MathUtils.lerp(start.x, hit.x, t), THREE.MathUtils.lerp(start.y, hit.y, t) + arc, THREE.MathUtils.lerp(start.z, hit.z, t));
-      projectile.current.rotation.set(t * 7, t * 11, t * 5);
-      projectile.current.visible = ageMs < flightMs;
-      projectile.current.scale.set(isEgg ? 0.13 : isTomato ? 0.22 : 0.11, isEgg ? 0.18 : isTomato ? 0.22 : 0.075, isEgg ? 0.13 : isTomato ? 0.22 : 0.075);
-    }
-    if (stain.current) {
-      const afterHit = (ageMs - flightMs) / 1000;
-      stain.current.position.copy(hit.clone().addScaledVector(normal, 0.012));
-      stain.current.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
-      stain.current.visible = (isTomato || isEgg) && afterHit >= 0 && afterHit < 15.6;
-      stain.current.children.forEach((child) => {
-        const material = (child as THREE.Mesh).material as THREE.MeshBasicMaterial;
-        material.opacity = afterHit > 14.4 ? Math.max(0, (15.6 - afterHit) / 1.2) : 0.96;
-      });
-    }
-    if (!isTomato && !isEgg && ageMs < flightMs) {
-      // Pequenas bolinhas visíveis durante todo o arremesso, abrindo levemente em leque.
-      kernels.current.forEach((mesh, i) => {
-        if (!mesh) return;
-        const spread = t * 0.12;
-        mesh.position.set(
-          THREE.MathUtils.lerp(start.x, hit.x, t) + (kernelStarts[i]?.x ?? 0) * (0.25 + t) + (kernelStarts[i]?.x ?? 0) * spread,
-          THREE.MathUtils.lerp(start.y, hit.y, t) + arc + (kernelStarts[i]?.y ?? 0) * t,
-          THREE.MathUtils.lerp(start.z, hit.z, t) + (kernelStarts[i]?.z ?? 0) * (0.25 + t) + (kernelStarts[i]?.z ?? 0) * spread,
-        );
-        mesh.visible = true;
-        (mesh.material as THREE.MeshBasicMaterial).opacity = 1;
-      });
-    } else if (!isTomato && !isEgg && ageMs < flightMs + 3200) {
-      const elapsed = Math.max(0, (ageMs - flightMs) / 1000);
-      if (!impactStarted.current) {
-        impactStarted.current = true;
-        const reference = Math.abs(normal.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
-        const tangent = new THREE.Vector3().crossVectors(normal, reference).normalize();
-        const bitangent = new THREE.Vector3().crossVectors(normal, tangent).normalize();
-        physics.current = kernelStarts.map(() => {
-          const spreadA = (seed() - 0.5) * 2.2;
-          const spreadB = (seed() - 0.5) * 2.2;
-          const velocity = normal.clone().multiplyScalar(0.65 + seed() * 1.25)
-            .add(tangent.clone().multiplyScalar(spreadA))
-            .add(bitangent.clone().multiplyScalar(spreadB));
-          velocity.y += 0.45 + seed() * 1.1;
-          return { vx: velocity.x, vy: velocity.y, vz: velocity.z };
-        });
-      }
-      kernels.current.forEach((mesh, i) => {
-        if (!mesh) return;
-        const velocity = physics.current[i];
-        if (!velocity) return;
-        const kt = Math.max(0, elapsed - (i % 3) * 0.025);
-        let y = hit.y + (kernelStarts[i]?.y ?? 0) + normal.y * 0.035 + velocity.vy * kt - 4.9 * kt * kt;
-        if (y < 0.045) { y = 0.045 + Math.abs(Math.sin(kt * 5 + i)) * 0.025; velocity.vx *= 0.985; velocity.vz *= 0.985; }
-        mesh.position.set(
-          hit.x + (kernelStarts[i]?.x ?? 0) + normal.x * 0.035 + velocity.vx * kt,
-          Math.max(0.045, y),
-          hit.z + (kernelStarts[i]?.z ?? 0) + normal.z * 0.035 + velocity.vz * kt,
-        );
-        mesh.visible = ageMs < flightMs + 3000;
-        (mesh.material as THREE.MeshBasicMaterial).opacity = ageMs > flightMs + 2450 ? Math.max(0, (flightMs + 3000 - ageMs) / 550) : 1;
-      });
-    } else kernels.current.forEach((mesh) => { if (mesh) mesh.visible = false; });
-  });
-  const stainQuaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
-  return <>
-    <mesh ref={projectile} position={[start.x, start.y, start.z]} castShadow userData={{ isSocialEffect: true }}>
-      {isEgg ? <sphereGeometry args={[1, 16, 12]} /> : isTomato ? <sphereGeometry args={[1, 16, 12]} /> : <sphereGeometry args={[1, 10, 8]} />}
-      <meshStandardMaterial color={isTomato ? '#ef4444' : isEgg ? '#fff7e6' : '#fff3c4'} roughness={0.55} />
-    </mesh>
-    <group ref={stain} position={[hit.x, hit.y, hit.z]} quaternion={stainQuaternion} userData={{ isSocialEffect: true }}>
-      {stainParts.map((part, i) => <mesh key={i} position={[part.x, part.y, 0]} renderOrder={4}>
-        <circleGeometry args={[part.r, 14]} /><meshBasicMaterial color={part.color} transparent opacity={0.92} depthWrite={false} side={THREE.DoubleSide} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
-      </mesh>)}
-    </group>
-    {!isTomato && !isEgg && kernelStarts.map((offset, i) => <mesh key={i} ref={(node) => { kernels.current[i] = node; }} position={[hit.x + offset.x, hit.y + offset.y, hit.z + offset.z]} visible={false} userData={{ isSocialEffect: true }}>
-      <sphereGeometry args={[0.06 + (i % 3) * 0.012, 10, 8]} /><meshBasicMaterial color="#fff4c2" transparent opacity={1} />
-    </mesh>)}
   </>;
 }
 export function CinemaCanvas({ participants, selfId, position, color, accessory, expression, pose, socialEffects, aimingAction, nearbySeat, onSitChair, onSelectParticipant, onAimPoint, aimPointGetterRef, cameraMode, cameraYaw, cameraPitch, cameraDistance }: {

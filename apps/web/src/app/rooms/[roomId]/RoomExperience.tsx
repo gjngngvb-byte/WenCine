@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { io, type Socket } from 'socket.io-client';
 import { CinemaCanvas } from '../../../three/CinemaCanvas';
 
-const isProjectilePreview = typeof window !== 'undefined' && window.location.hostname.includes('feat-hold-to-aim-projectiles');
+const isProjectilePreview = typeof window !== 'undefined' && (window.location.hostname.includes('feat-hold-to-aim-projectiles') || window.location.hostname.includes('feat-projectile-system-rebuild'));
 // A prévia do frontend precisa conversar com o backend da mesma branch. O Render de produção
 // continua na main e não conhece os novos campos/ação throw_egg.
 const API = isProjectilePreview ? 'https://wencine-projectile-test.onrender.com' : (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000');
