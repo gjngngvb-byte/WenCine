@@ -4,9 +4,9 @@ import { useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import {
-  buildProjectileArcFromDirection,
+  buildProjectileArcToTarget,
   projectilePositionAt,
-  projectileVelocityFromDirection,
+  projectileVelocityToTarget,
   PROJECTILE_FLIGHT_SECONDS,
 } from './trajectory';
 
@@ -69,8 +69,8 @@ export function ThrownSnack({ effect }: { effect: ProjectileEffectData }) {
     [effect.directionX, effect.directionY, effect.directionZ],
   );
   const flight = PROJECTILE_FLIGHT_SECONDS;
-  const velocity = useMemo(() => projectileVelocityFromDirection(direction), [direction]);
-  const arcPoints = useMemo(() => buildProjectileArcFromDirection(start, direction, 96), [start, direction]);
+  const velocity = useMemo(() => projectileVelocityToTarget(start, target), [start, target]);
+  const arcPoints = useMemo(() => buildProjectileArcToTarget(start, target, 96), [start, target]);
   const target = useMemo(() => new THREE.Vector3(effect.hitX ?? 0, effect.hitY ?? 1, effect.hitZ ?? -8), [effect.hitX, effect.hitY, effect.hitZ]);
   const launchAt = effect.receivedAt ?? effect.sentAt;
   const kernels = useMemo(() => Array.from({ length: 14 }, (_, i) => ({
@@ -95,7 +95,7 @@ export function ThrownSnack({ effect }: { effect: ProjectileEffectData }) {
       const arcEnd = arcPoints[arcIndex + 1] ?? target;
       const next = elapsed <= flight
         ? arcStart.clone().lerp(arcEnd, arcBlend)
-        : projectilePositionAt(start, velocity, elapsed);
+        : target.clone();
       const previous = previousPoint.current ?? start.clone();
       const segment = next.clone().sub(previous);
       const distance = segment.length();
