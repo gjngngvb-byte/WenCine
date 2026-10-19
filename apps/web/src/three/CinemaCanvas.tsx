@@ -165,7 +165,6 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
       if (aimingAction) {
         const material = line.material as THREE.LineBasicMaterial;
         material.color.set(aimingAction === 'throw_tomato' ? '#ff5757' : '#fff2b3');
-        const target = getAimPoint(cameraYaw, cameraPitch);
         const start = new THREE.Vector3(
           position.x + Math.sin(cameraYaw) * 0.42,
           pose === 'sitting_chair' ? 0.95 : 1.22,
