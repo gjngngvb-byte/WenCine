@@ -138,7 +138,7 @@ export function ThrownSnack({ effect }: { effect: ProjectileEffectData }) {
 
   return (
     <>
-      <group ref={projectile} position={start.toArray()} userData={{ isSocialEffect: true, isProjectilePreview: true }}>
+      <group ref={projectile} position={[start.x, start.y, start.z]} userData={{ isSocialEffect: true, isProjectilePreview: true }}>
         {isPopcorn ? [0, 1, 2, 3, 4].map((i) => (
           <mesh key={i} position={[(i - 2) * 0.045, (i % 2) * 0.035, ((i % 3) - 1) * 0.04]}>
             <sphereGeometry args={[0.045, 8, 7]} />
@@ -154,7 +154,7 @@ export function ThrownSnack({ effect }: { effect: ProjectileEffectData }) {
 
       {impact && (
         <group
-          position={impact.point.toArray()}
+          position={[impact.point.x, impact.point.y, impact.point.z]}
           quaternion={surfaceQuaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), impact.normal)}
           userData={{ isSocialEffect: true }}
         >
@@ -189,7 +189,7 @@ export function ThrownSnack({ effect }: { effect: ProjectileEffectData }) {
         <mesh
           key={i}
           ref={(node) => { kernelRefs.current[i] = node; }}
-          position={target.toArray()}
+          position={[target.x, target.y, target.z]}
           visible={false}
           userData={{ isSocialEffect: true }}
         >
