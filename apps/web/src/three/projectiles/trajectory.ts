@@ -20,12 +20,15 @@ export function getProjectileAimPoint(
   scene: THREE.Scene,
   raycaster: THREE.Raycaster,
   maxDistance = 30,
+  directionOverride?: THREE.Vector3,
 ): ProjectileAimPoint {
   scene.updateMatrixWorld(true);
   camera.updateMatrixWorld(true);
 
   const origin = camera.getWorldPosition(new THREE.Vector3());
-  const direction = camera.getWorldDirection(new THREE.Vector3()).normalize();
+  // O mouse pode mudar a mira entre dois frames. Quando disponível, usa yaw/pitch
+  // atuais do controle em vez da orientação da câmera do frame anterior.
+  const direction = (directionOverride ?? camera.getWorldDirection(new THREE.Vector3())).clone().normalize();
 
   raycaster.set(origin, direction);
   raycaster.near = 0.05;
