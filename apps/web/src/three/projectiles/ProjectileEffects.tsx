@@ -1,11 +1,10 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
-import * as THREE from 'three';
 import {
+  buildProjectileArcFromDirection,
   projectilePositionAt,
-  projectileVelocityFromDirection,\n  PROJECTILE_FLIGHT_SECONDS,
+  projectileVelocityFromDirection,
+  PROJECTILE_FLIGHT_SECONDS,
 } from './trajectory';
 
 export type ProjectileEffectData = {
