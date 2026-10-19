@@ -21,11 +21,14 @@ export function getProjectileAimPoint(
   raycaster: THREE.Raycaster,
   maxDistance = 30,
   directionOverride?: THREE.Vector3,
+  originOverride?: THREE.Vector3,
 ): ProjectileAimPoint {
   scene.updateMatrixWorld(true);
   camera.updateMatrixWorld(true);
 
-  const origin = camera.getWorldPosition(new THREE.Vector3());
+  // Para projéteis, a mira parte da mão do avatar. Partir da câmera em terceira
+  // pessoa pode fazer o raio atravessar o próprio avatar e selecionar um ponto atrás dele.
+  const origin = (originOverride ?? camera.getWorldPosition(new THREE.Vector3())).clone();
   // O mouse pode mudar a mira entre dois frames. Quando disponível, usa yaw/pitch
   // atuais do controle em vez da orientação da câmera do frame anterior.
   const direction = (directionOverride ?? camera.getWorldDirection(new THREE.Vector3())).clone().normalize();
