@@ -5,8 +5,6 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import {
   buildProjectileArcToTarget,
-  projectilePositionAt,
-  projectileVelocityToTarget,
   PROJECTILE_FLIGHT_SECONDS,
 } from './trajectory';
 
@@ -64,12 +62,7 @@ export function ThrownSnack({ effect }: { effect: ProjectileEffectData }) {
     () => new THREE.Vector3(effect.startX ?? 0, effect.startY ?? 1.2, effect.startZ ?? 0),
     [effect.startX, effect.startY, effect.startZ],
   );
-  const direction = useMemo(
-    () => new THREE.Vector3(effect.directionX ?? 0, effect.directionY ?? 0, effect.directionZ ?? -1).normalize(),
-    [effect.directionX, effect.directionY, effect.directionZ],
-  );
   const flight = PROJECTILE_FLIGHT_SECONDS;
-  const velocity = useMemo(() => projectileVelocityToTarget(start, target), [start, target]);
   const arcPoints = useMemo(() => buildProjectileArcToTarget(start, target, 96), [start, target]);
   const target = useMemo(() => new THREE.Vector3(effect.hitX ?? 0, effect.hitY ?? 1, effect.hitZ ?? -8), [effect.hitX, effect.hitY, effect.hitZ]);
   const launchAt = effect.receivedAt ?? effect.sentAt;
