@@ -7,7 +7,7 @@ import { CinemaCanvas } from '../../../three/CinemaCanvas';
 
 // Vercel Preview URLs normalmente usam hashes e não incluem o nome da branch no hostname.
 // Detectamos a branch no build e mantemos o hostname como fallback para testes locais.
-const isProjectilePreview = process.env.VERCEL_GIT_COMMIT_REF === 'fix/projectiles-visible-and-preview-api' || process.env.VERCEL_GIT_COMMIT_REF === 'feat/projectile-system-rebuild' || process.env.VERCEL_GIT_COMMIT_REF === 'feat-hold-to-aim-projectiles' || (typeof window !== 'undefined' && (window.location.hostname.includes('feat-hold-to-aim-projectiles') || window.location.hostname.includes('feat-projectile-system-rebuild') || window.location.search.includes('projectilePreview=1')));
+const isProjectilePreview = process.env.VERCEL_GIT_COMMIT_REF === 'fix/projectile-preview-flight-match' || process.env.VERCEL_GIT_COMMIT_REF === 'fix/projectiles-visible-and-preview-api' || process.env.VERCEL_GIT_COMMIT_REF === 'feat/projectile-system-rebuild' || process.env.VERCEL_GIT_COMMIT_REF === 'feat-hold-to-aim-projectiles' || (typeof window !== 'undefined' && (window.location.hostname.includes('fix-projectile-preview-flight-match') || window.location.hostname.includes('feat-hold-to-aim-projectiles') || window.location.hostname.includes('feat-projectile-system-rebuild') || window.location.search.includes('projectilePreview=1')));
 // A prévia do frontend precisa conversar com o backend da mesma branch. O Render de produção
 // continua na main e não conhece os novos campos/ação throw_egg.
 const API = isProjectilePreview ? 'https://wencine-projectile-test.onrender.com' : (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000');
