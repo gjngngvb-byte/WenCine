@@ -201,11 +201,22 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
     {cameraMode !== 'first' && <Avatar person={localPerson} local onSelectParticipant={onSelectParticipant} socialEffects={socialEffects} allPeople={[localPerson, ...participants.filter((person) => person.id !== selfId && person.connected)]} />}
     {participants.filter((person) => person.id !== selfId && person.connected).map((person) => <Avatar key={person.id} person={person} socialEffects={socialEffects} allPeople={[localPerson, ...participants.filter((candidate) => candidate.id !== selfId && candidate.connected)]} onSelectParticipant={onSelectParticipant} />)}
     <primitive object={trajectoryObject} ref={trajectoryLine} visible={false} userData={{ isSocialEffect: true }} />
-    {socialEffects.filter((effect) => ['throw_popcorn', 'throw_tomato', 'throw_egg'].includes(effect.action) && Date.now() - (effect.receivedAt ?? effect.sentAt) < 18000).map((effect) =>
-      effect.startX !== undefined && effect.startY !== undefined && effect.startZ !== undefined && effect.hitX !== undefined && effect.hitY !== undefined && effect.hitZ !== undefined
-        ? <ThrownSnack key={effect.id} effect={effect} />
-        : null
-    )}
+    {socialEffects.filter((effect) => ['throw_popcorn', 'throw_tomato', 'throw_egg'].includes(effect.action) && Date.now() - (effect.receivedAt ?? effect.sentAt) < 18000).map((effect) => {
+      // Nunca esconder um lançamento inteiro só porque uma versão antiga do servidor
+      // não devolveu todas as coordenadas. Reconstrói uma trajetória simples a partir
+      // da posição do lançador para que sempre exista um objeto visível.
+      const actor = effect.actorId === selfId ? localPerson : participants.find((person) => person.id === effect.actorId);
+      const yaw = actor?.rotation ?? cameraYaw;
+      const actorX = actor?.x ?? position.x;
+      const actorZ = actor?.z ?? position.z;
+      const startX = effect.startX ?? actorX + Math.sin(yaw) * 0.42;
+      const startY = effect.startY ?? 1.22;
+      const startZ = effect.startZ ?? actorZ - Math.cos(yaw) * 0.42;
+      const hitX = effect.hitX ?? startX + Math.sin(yaw) * 4.5;
+      const hitY = effect.hitY ?? 1.0;
+      const hitZ = effect.hitZ ?? startZ - Math.cos(yaw) * 4.5;
+      return <ThrownSnack key={effect.id} effect={{ ...effect, startX, startY, startZ, hitX, hitY, hitZ }} />;
+    })}
   </>;
 }
 export function CinemaCanvas({ participants, selfId, position, color, accessory, expression, pose, socialEffects, aimingAction, nearbySeat, onSitChair, onSelectParticipant, onAimPoint, aimPointGetterRef, cameraMode, cameraYaw, cameraPitch, cameraDistance }: {
