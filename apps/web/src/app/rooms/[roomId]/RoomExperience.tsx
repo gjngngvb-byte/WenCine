@@ -53,7 +53,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null);
   const [pendingRequest, setPendingRequest] = useState<{ requestId: string; fromId: string; fromName: string; action: string } | null>(null);
   const [socialStatus, setSocialStatus] = useState('');
-  const [socialEffects, setSocialEffects] = useState<Array<{ id: string; action: string; actorId: string; targetId?: string; sentAt: number; receivedAt?: number; startX?: number; startY?: number; startZ?: number; hitX?: number; hitY?: number; hitZ?: number; normalX?: number; normalY?: number; normalZ?: number }>>([]);
+  const [socialEffects, setSocialEffects] = useState<Array<{ id: string; action: string; actorId: string; targetId?: string; sentAt: number; receivedAt?: number; startX?: number; startY?: number; startZ?: number; hitX?: number; hitY?: number; hitZ?: number; normalX?: number; normalY?: number; normalZ?: number; directionX?: number; directionY?: number; directionZ?: number }>>([]);
   const [filmRating, setFilmRating] = useState(0);
   const [filmSummary, setFilmSummary] = useState<{ count: number; average: number } | null>(null);
   const lastMoveRef = useRef(0);
@@ -98,7 +98,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     socket.on('avatar:dragged', (next: { x: number; z: number; rotation: number }) => { positionRef.current = next; setPosition(next); });
     socket.on('social:request', (request: { requestId: string; fromId: string; fromName: string; action: string }) => setPendingRequest(request));
     socket.on('social:response', (response: { accepted: boolean; action?: string; message?: string }) => setSocialStatus(response.message ?? (response.accepted ? 'Interação aceita!' : 'A pessoa recusou a interação.')));
-    socket.on('social:effect', (effect: { id: string; action: string; actorId: string; targetId?: string; sentAt: number; startX?: number; startY?: number; startZ?: number; hitX?: number; hitY?: number; hitZ?: number; normalX?: number; normalY?: number; normalZ?: number }) => {
+    socket.on('social:effect', (effect: { id: string; action: string; actorId: string; targetId?: string; sentAt: number; startX?: number; startY?: number; startZ?: number; hitX?: number; hitY?: number; hitZ?: number; normalX?: number; normalY?: number; normalZ?: number; directionX?: number; directionY?: number; directionZ?: number }) => {
       const visibleEffect = { ...effect, receivedAt: Date.now() };
       setSocialEffects((current) => [...current.slice(-24), visibleEffect]);
       const labels: Record<string, string> = {
