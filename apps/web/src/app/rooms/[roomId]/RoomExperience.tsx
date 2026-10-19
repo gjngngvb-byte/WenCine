@@ -7,7 +7,7 @@ import { CinemaCanvas } from '../../../three/CinemaCanvas';
 
 // Vercel Preview URLs normalmente usam hashes e não incluem o nome da branch no hostname.
 // Detectamos a branch no build e mantemos o hostname como fallback para testes locais.
-const isProjectilePreview = process.env.VERCEL_GIT_COMMIT_REF === 'fix/projectiles-visible-and-preview-api' || process.env.VERCEL_GIT_COMMIT_REF === 'feat/projectile-system-rebuild' || process.env.VERCEL_GIT_COMMIT_REF === 'feat-hold-to-aim-projectiles' || (typeof window !== 'undefined' && (window.location.hostname.includes('feat-hold-to-aim-projectiles') || window.location.hostname.includes('feat-projectile-system-rebuild') || window.location.search.includes('projectilePreview=1')));
+const isProjectilePreview = process.env.VERCEL_GIT_COMMIT_REF === 'fix/projectile-preview-flight-match' || process.env.VERCEL_GIT_COMMIT_REF === 'fix/projectiles-visible-and-preview-api' || process.env.VERCEL_GIT_COMMIT_REF === 'feat/projectile-system-rebuild' || process.env.VERCEL_GIT_COMMIT_REF === 'feat-hold-to-aim-projectiles' || (typeof window !== 'undefined' && (window.location.hostname.includes('fix-projectile-preview-flight-match') || window.location.hostname.includes('feat-hold-to-aim-projectiles') || window.location.hostname.includes('feat-projectile-system-rebuild') || window.location.search.includes('projectilePreview=1')));
 // A prévia do frontend precisa conversar com o backend da mesma branch. O Render de produção
 // continua na main e não conhece os novos campos/ação throw_egg.
 const API = isProjectilePreview ? 'https://wencine-projectile-test.onrender.com' : (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000');
@@ -45,15 +45,15 @@ export function RoomExperience({ roomId }: { roomId: string }) {
   const cameraYawRef = useRef(0);
   const cameraPitchRef = useRef(-0.12);
   const canvasWrapRef = useRef<HTMLDivElement | null>(null);
-  const aimPointRef = useRef<{ x: number; y: number; z: number; nx: number; ny: number; nz: number } | null>(null);
-  const aimPointGetterRef = useRef<((yaw: number, pitch: number) => { x: number; y: number; z: number; nx: number; ny: number; nz: number } | null) | null>(null);
+  const aimPointRef = useRef<{ x: number; y: number; z: number; nx: number; ny: number; nz: number; directionX: number; directionY: number; directionZ: number } | null>(null);
+  const aimPointGetterRef = useRef<((yaw: number, pitch: number) => { x: number; y: number; z: number; nx: number; ny: number; nz: number; directionX: number; directionY: number; directionZ: number } | null) | null>(null);
   const [aimingAction, setAimingAction] = useState<'throw_popcorn' | 'throw_tomato' | null>(null);
   const aimingActionRef = useRef<'throw_popcorn' | 'throw_tomato' | null>(null);
   const socialActionRef = useRef<((action: string) => void) | null>(null);
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null);
   const [pendingRequest, setPendingRequest] = useState<{ requestId: string; fromId: string; fromName: string; action: string } | null>(null);
   const [socialStatus, setSocialStatus] = useState('');
-  const [socialEffects, setSocialEffects] = useState<Array<{ id: string; action: string; actorId: string; targetId?: string; sentAt: number; receivedAt?: number; startX?: number; startY?: number; startZ?: number; hitX?: number; hitY?: number; hitZ?: number; normalX?: number; normalY?: number; normalZ?: number }>>([]);
+  const [socialEffects, setSocialEffects] = useState<Array<{ id: string; action: string; actorId: string; targetId?: string; sentAt: number; receivedAt?: number; startX?: number; startY?: number; startZ?: number; hitX?: number; hitY?: number; hitZ?: number; normalX?: number; normalY?: number; normalZ?: number; directionX?: number; directionY?: number; directionZ?: number }>>([]);
   const [filmRating, setFilmRating] = useState(0);
   const [filmSummary, setFilmSummary] = useState<{ count: number; average: number } | null>(null);
   const lastMoveRef = useRef(0);
@@ -98,7 +98,7 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     socket.on('avatar:dragged', (next: { x: number; z: number; rotation: number }) => { positionRef.current = next; setPosition(next); });
     socket.on('social:request', (request: { requestId: string; fromId: string; fromName: string; action: string }) => setPendingRequest(request));
     socket.on('social:response', (response: { accepted: boolean; action?: string; message?: string }) => setSocialStatus(response.message ?? (response.accepted ? 'Interação aceita!' : 'A pessoa recusou a interação.')));
-    socket.on('social:effect', (effect: { id: string; action: string; actorId: string; targetId?: string; sentAt: number; startX?: number; startY?: number; startZ?: number; hitX?: number; hitY?: number; hitZ?: number; normalX?: number; normalY?: number; normalZ?: number }) => {
+    socket.on('social:effect', (effect: { id: string; action: string; actorId: string; targetId?: string; sentAt: number; startX?: number; startY?: number; startZ?: number; hitX?: number; hitY?: number; hitZ?: number; normalX?: number; normalY?: number; normalZ?: number; directionX?: number; directionY?: number; directionZ?: number }) => {
       const visibleEffect = { ...effect, receivedAt: Date.now() };
       setSocialEffects((current) => [...current.slice(-24), visibleEffect]);
       const labels: Record<string, string> = {
@@ -328,9 +328,11 @@ export function RoomExperience({ roomId }: { roomId: string }) {
     const aimYaw = cameraYawRef.current;
     // O projétil nasce à frente do avatar na direção real da câmera, não na rotação antiga do corpo.
     // Isso evita que ele apareça atrás do jogador quando a câmera de terceira pessoa gira.
-    const start = { startX: current.x + Math.sin(aimYaw) * 0.42, startY: pose === 'sitting_chair' ? 0.95 : 1.22, startZ: current.z - Math.cos(aimYaw) * 0.42 };
+    const pitch = cameraPitchRef.current;
+    const direction = { directionX: aim?.directionX ?? Math.sin(aimYaw) * Math.cos(pitch), directionY: aim?.directionY ?? Math.sin(pitch), directionZ: aim?.directionZ ?? -Math.cos(aimYaw) * Math.cos(pitch) };
+    const start = { startX: current.x + direction.directionX * 0.42, startY: pose === 'sitting_chair' ? 0.95 : 1.22, startZ: current.z + direction.directionZ * 0.42 };
     const impact = aim ? { hitX: aim.x, hitY: aim.y, hitZ: aim.z, normalX: aim.nx, normalY: aim.ny, normalZ: aim.nz } : {};
-    socketRef.current?.emit('social:action', { action, ...(isThrow ? { ...start, ...impact } : {}), ...extra });
+    socketRef.current?.emit('social:action', { action, ...(isThrow ? { ...start, ...impact, ...direction } : {}), ...extra });
     setSocialStatus(action === 'offer_hand' ? 'Pedido de mão enviado.' : '');
   }
   socialActionRef.current = (action: string) => socialAction(action);

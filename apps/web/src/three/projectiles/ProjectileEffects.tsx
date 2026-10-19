@@ -4,10 +4,10 @@ import { useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import {
-  buildProjectileArc,
-  projectileFlightSeconds,
+  buildProjectileArcFromDirection,
   projectilePositionAt,
-  solveProjectileVelocity,
+  projectileVelocityFromDirection,
+  PROJECTILE_FLIGHT_SECONDS,
 } from './trajectory';
 
 export type ProjectileEffectData = {
@@ -24,6 +24,9 @@ export type ProjectileEffectData = {
   normalX?: number;
   normalY?: number;
   normalZ?: number;
+  directionX?: number;
+  directionY?: number;
+  directionZ?: number;
 };
 
 type Impact = { point: THREE.Vector3; normal: THREE.Vector3; at: number };
@@ -61,15 +64,14 @@ export function ThrownSnack({ effect }: { effect: ProjectileEffectData }) {
     () => new THREE.Vector3(effect.startX ?? 0, effect.startY ?? 1.2, effect.startZ ?? 0),
     [effect.startX, effect.startY, effect.startZ],
   );
-  const target = useMemo(
-    () => new THREE.Vector3(effect.hitX ?? 0, effect.hitY ?? 1, effect.hitZ ?? -8),
-    [effect.hitX, effect.hitY, effect.hitZ],
+  const direction = useMemo(
+    () => new THREE.Vector3(effect.directionX ?? 0, effect.directionY ?? 0, effect.directionZ ?? -1).normalize(),
+    [effect.directionX, effect.directionY, effect.directionZ],
   );
-  const flight = useMemo(() => projectileFlightSeconds(start, target), [start, target]);
-  const velocity = useMemo(() => solveProjectileVelocity(start, target, flight), [start, target, flight]);
-  // Use the exact same sampled parabola as the aiming preview, not a separately
-  // advanced position that can drift away from the visible line between frames.
-  const arcPoints = useMemo(() => buildProjectileArc(start, target, 96), [start, target]);
+  const flight = PROJECTILE_FLIGHT_SECONDS;
+  const velocity = useMemo(() => projectileVelocityFromDirection(direction), [direction]);
+  const arcPoints = useMemo(() => buildProjectileArcFromDirection(start, direction, 96), [start, direction]);
+  const target = useMemo(() => new THREE.Vector3(effect.hitX ?? 0, effect.hitY ?? 1, effect.hitZ ?? -8), [effect.hitX, effect.hitY, effect.hitZ]);
   const launchAt = effect.receivedAt ?? effect.sentAt;
   const kernels = useMemo(() => Array.from({ length: 14 }, (_, i) => ({
     x: (seeded(effect.id, i * 3) - 0.5) * 0.16,

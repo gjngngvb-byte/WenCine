@@ -60,22 +60,17 @@ export function getProjectileAimPoint(
   };
 }
 
-/** A physically consistent ballistic arc that reaches the selected point exactly. */
-export function solveProjectileVelocity(
-  start: THREE.Vector3,
-  target: THREE.Vector3,
-  flightSeconds: number,
-  gravity = 9.81,
-): THREE.Vector3 {
-  const time = Math.max(0.12, flightSeconds);
-  return target.clone().sub(start).add(new THREE.Vector3(0, 0.5 * gravity * time * time, 0)).divideScalar(time);
-}
+/** Camera direction controls forward travel; gravity bends the path downward. */
+export const PROJECTILE_FLIGHT_SECONDS = 1.35;
+export const PROJECTILE_SPEED = 12;
+export const PROJECTILE_LOFT = 3.2;
 
-export function projectileFlightSeconds(start: THREE.Vector3, target: THREE.Vector3): number {
-  const distance = start.distanceTo(target);
-  // Um tempo mínimo evita arcos quase retos em alvos próximos; o teto evita que
-  // a parábola suba excessivamente ao mirar longe e saia da área visível.
-  return THREE.MathUtils.clamp(distance / 11.5, 0.42, 1.55);
+export function projectileVelocityFromDirection(
+  direction: THREE.Vector3,
+  speed = PROJECTILE_SPEED,
+  loft = PROJECTILE_LOFT,
+): THREE.Vector3 {
+  return direction.clone().normalize().multiplyScalar(speed).add(new THREE.Vector3(0, loft, 0));
 }
 
 export function projectilePositionAt(
@@ -91,14 +86,13 @@ export function projectilePositionAt(
   );
 }
 
-export function buildProjectileArc(
+export function buildProjectileArcFromDirection(
   start: THREE.Vector3,
-  target: THREE.Vector3,
-  segments = 28,
+  direction: THREE.Vector3,
+  segments = 96,
 ): THREE.Vector3[] {
-  const flight = projectileFlightSeconds(start, target);
-  const velocity = solveProjectileVelocity(start, target, flight);
+  const velocity = projectileVelocityFromDirection(direction);
   return Array.from({ length: segments + 1 }, (_, index) =>
-    projectilePositionAt(start, velocity, flight * index / segments),
+    projectilePositionAt(start, velocity, PROJECTILE_FLIGHT_SECONDS * index / segments),
   );
 }
