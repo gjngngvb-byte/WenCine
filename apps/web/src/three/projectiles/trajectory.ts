@@ -73,6 +73,21 @@ export function projectileVelocityFromDirection(
   return direction.clone().normalize().multiplyScalar(speed).add(new THREE.Vector3(0, loft, 0));
 }
 
+/** Solve initial velocity so the projectile reaches the camera's exact aim point on a gravity arc. */
+export function projectileVelocityToTarget(
+  start: THREE.Vector3,
+  target: THREE.Vector3,
+  flightSeconds = PROJECTILE_FLIGHT_SECONDS,
+  gravity = 9.81,
+): THREE.Vector3 {
+  const duration = Math.max(0.1, flightSeconds);
+  return new THREE.Vector3(
+    (target.x - start.x) / duration,
+    (target.y - start.y + 0.5 * gravity * duration * duration) / duration,
+    (target.z - start.z) / duration,
+  );
+}
+
 export function projectilePositionAt(
   start: THREE.Vector3,
   velocity: THREE.Vector3,
@@ -83,6 +98,17 @@ export function projectilePositionAt(
     start.x + velocity.x * seconds,
     start.y + velocity.y * seconds - 0.5 * gravity * seconds * seconds,
     start.z + velocity.z * seconds,
+  );
+}
+
+export function buildProjectileArcToTarget(
+  start: THREE.Vector3,
+  target: THREE.Vector3,
+  segments = 96,
+): THREE.Vector3[] {
+  const velocity = projectileVelocityToTarget(start, target);
+  return Array.from({ length: segments + 1 }, (_, index) =>
+    projectilePositionAt(start, velocity, PROJECTILE_FLIGHT_SECONDS * index / segments),
   );
 }
 
