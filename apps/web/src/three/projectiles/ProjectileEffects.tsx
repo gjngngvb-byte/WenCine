@@ -45,14 +45,26 @@ export function ThrownSnack({ effect }: { effect: ProjectileEffectData }) {
   const isEgg = effect.action === 'throw_egg';
   const isPopcorn = effect.action === 'throw_popcorn';
 
-  const start = useMemo(
-    () => new THREE.Vector3(effect.startX ?? 0, effect.startY ?? 1.2, effect.startZ ?? 0),
-    [effect.startX, effect.startY, effect.startZ],
-  );
+  // Congela origem, alvo e arco no instante em que o projétil nasce.
+  // Atualizações de posição/câmera/teclado depois do lançamento não recalculam a trajetória.
+  const launchSnapshot = useRef<{
+    start: THREE.Vector3;
+    target: THREE.Vector3;
+    arcPoints: THREE.Vector3[];
+    launchAt: number;
+  } | null>(null);
+  if (!launchSnapshot.current) {
+    const start = new THREE.Vector3(effect.startX ?? 0, effect.startY ?? 1.2, effect.startZ ?? 0);
+    const target = new THREE.Vector3(effect.hitX ?? 0, effect.hitY ?? 1, effect.hitZ ?? -8);
+    launchSnapshot.current = {
+      start,
+      target,
+      arcPoints: buildProjectileArcToTarget(start, target, 96),
+      launchAt: effect.receivedAt ?? effect.sentAt,
+    };
+  }
+  const { start, target, arcPoints, launchAt } = launchSnapshot.current;
   const flight = PROJECTILE_FLIGHT_SECONDS;
-  const target = useMemo(() => new THREE.Vector3(effect.hitX ?? 0, effect.hitY ?? 1, effect.hitZ ?? -8), [effect.hitX, effect.hitY, effect.hitZ]);
-  const arcPoints = useMemo(() => buildProjectileArcToTarget(start, target, 96), [start, target]);
-  const launchAt = effect.receivedAt ?? effect.sentAt;
   const kernels = useMemo(() => Array.from({ length: 14 }, (_, i) => ({
     x: (seeded(effect.id, i * 3) - 0.5) * 0.16,
     y: (seeded(effect.id, i * 3 + 1) - 0.5) * 0.13,
