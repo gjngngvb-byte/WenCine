@@ -138,7 +138,13 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
     // movimento W/S ou uma direção calculada por uma fórmula paralela à câmera.
     camera.updateMatrixWorld(true);
     scene.updateMatrixWorld(true);
-    const cameraDirection = camera.getWorldDirection(new THREE.Vector3()).normalize();
+    // Use o mesmo vetor matemático que orienta a câmera nos dois modos.
+    // A posição/rotação do avatar durante WASD não pode alterar a mira.
+    const cameraDirection = new THREE.Vector3(
+      Math.sin(cameraYaw) * Math.cos(cameraPitch),
+      Math.sin(cameraPitch),
+      -Math.cos(cameraYaw) * Math.cos(cameraPitch),
+    ).normalize();
     const handHeight = pose === 'sitting_chair' ? 0.95 : 1.22;
     const hand = new THREE.Vector3(
       position.x + cameraDirection.x * 0.42,
