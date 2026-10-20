@@ -131,7 +131,7 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
   const trajectoryLine = useRef<THREE.Line>(null);
   const trajectoryObject = useMemo(() => new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: '#fff2b3', transparent: true, opacity: 0.95, depthTest: false })), []);
   aimPointCallback.current = onAimPoint;
-  const getAimPoint = useCallback((_yaw = cameraYaw, _pitch = cameraPitch): AimPoint => {
+  const getAimPoint = useCallback((): AimPoint => {
     // A direção de lançamento vem exclusivamente da câmera renderizada.
     // WASD altera a posição/rotação do avatar, mas nunca fornece o vetor do projétil.
     // Atualizamos a matriz antes de ler o vetor real para evitar usar yaw do corpo,
