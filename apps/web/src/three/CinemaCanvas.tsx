@@ -132,16 +132,13 @@ function CinemaScene({ participants, selfId, position, color, accessory, express
   const trajectoryObject = useMemo(() => new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: '#fff2b3', transparent: true, opacity: 0.95, depthTest: false })), []);
   aimPointCallback.current = onAimPoint;
   const getAimPoint = useCallback((yaw = cameraYaw, pitch = cameraPitch): AimPoint => {
-    // Usa a direção do controle de câmera, não a matriz interpolada do frame anterior.
-    // Convenção da sala: yaw 0 aponta para a tela (-Z); yaw 180° aponta para trás (+Z).
-    // Isso evita inverter profundidade ou deixar a trajetória depender do deslocamento W/S.
+    // A direção de lançamento vem exclusivamente da câmera renderizada.
+    // WASD altera a posição/rotação do avatar, mas nunca fornece o vetor do projétil.
+    // Atualizamos a matriz antes de ler o vetor real para evitar usar yaw do corpo,
+    // movimento W/S ou uma direção calculada por uma fórmula paralela à câmera.
     camera.updateMatrixWorld(true);
     scene.updateMatrixWorld(true);
-    const cameraDirection = new THREE.Vector3(
-      Math.sin(yaw) * Math.cos(pitch),
-      Math.sin(pitch),
-      -Math.cos(yaw) * Math.cos(pitch),
-    ).normalize();
+    const cameraDirection = camera.getWorldDirection(new THREE.Vector3()).normalize();
     const handHeight = pose === 'sitting_chair' ? 0.95 : 1.22;
     const hand = new THREE.Vector3(
       position.x + cameraDirection.x * 0.42,
